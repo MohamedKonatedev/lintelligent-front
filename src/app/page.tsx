@@ -63,7 +63,7 @@ export default function HomePage() {
         </div>
 
         <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
-          {emissions.map((item) => (
+          {emissions.map((item, index) => (
             <a
               key={item.title}
               href={item.href}
@@ -73,6 +73,8 @@ export default function HomePage() {
                 <img
                   src={item.image}
                   alt={item.title}
+                  loading={index < 4 ? "eager" : "lazy"}
+                  decoding="async"
                   className="aspect-square w-full object-cover transition duration-500 group-hover:scale-105 group-hover:grayscale"
                 />
                 <div

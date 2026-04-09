@@ -6,6 +6,8 @@ export default function MentionsLegalesPage() {
             <img
               src="/bg-live.jpg"
               alt="Fond mentions légales"
+              loading="eager"
+              decoding="async"
               className="h-full w-full object-cover"
             />
           </div>

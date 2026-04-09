@@ -504,6 +504,8 @@ export default function ProgramsScheduleClient({ programs }: Props) {
                                   <img
                                     src={program.emission.image}
                                     alt={program.title}
+                                    loading={isActive ? "eager" : "lazy"}
+                                    decoding="async"
                                     className="h-full w-full object-cover"
                                   />
                                 ) : (
@@ -598,6 +600,8 @@ export default function ProgramsScheduleClient({ programs }: Props) {
                                 <img
                                   src={program.emission.image}
                                   alt={program.title}
+                                  loading={isActive ? "eager" : "lazy"}
+                                  decoding="async"
                                   className="h-full w-full object-cover"
                                 />
                               ) : (

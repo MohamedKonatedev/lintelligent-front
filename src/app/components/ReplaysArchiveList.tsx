@@ -1,6 +1,5 @@
 "use client";
 
-import Image from "next/image";
 import Link from "next/link";
 import { useMemo, useState } from "react";
 
@@ -37,20 +36,19 @@ export default function ReplaysArchiveList({ videos }: Props) {
       ) : (
         <>
           <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
-            {visibleVideos.map((video) => (
+            {visibleVideos.map((video, index) => (
               <Link
                 key={video.id}
                 href={`/videos/${video.slug}`}
                 className="group overflow-hidden rounded-[22px] border border-white/10 bg-white/[0.04] transition hover:-translate-y-1 hover:bg-white/[0.06]"
               >
                 <div className="relative aspect-[3/4] overflow-hidden bg-black">
-                  <Image
+                  <img
                     src={video.image}
                     alt={video.title}
-                    fill
-                    unoptimized
-                    sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 20vw"
-                    className="object-cover transition duration-500 group-hover:scale-[1.04]"
+                    loading={index < 5 ? "eager" : "lazy"}
+                    decoding="async"
+                    className="h-full w-full object-cover transition duration-500 group-hover:scale-[1.04]"
                   />
                 </div>
 

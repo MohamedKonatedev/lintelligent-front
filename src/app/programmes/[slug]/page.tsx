@@ -193,14 +193,12 @@ export default async function ProgramPage({ params }: PageProps) {
             >
               <div className="grid lg:grid-cols-[1.08fr_0.92fr]">
                 <div className="relative aspect-video w-full overflow-hidden bg-black">
-                  <Image
+                  <img
                     src={getFeaturedImage(featuredPost) || program.imageDesktop}
                     alt={featuredPost.title?.rendered || program.title}
-                    fill
-                    priority
-                    unoptimized
-                    sizes="(max-width: 1024px) 100vw, 58vw"
-                    className="object-cover transition duration-500 group-hover:scale-[1.03]"
+                    loading="eager"
+                    decoding="async"
+                    className="h-full w-full object-cover transition duration-500 group-hover:scale-[1.03]"
                   />
                 </div>
 

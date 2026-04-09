@@ -6,6 +6,8 @@ export default function NotreChainePage() {
             <img
               src="/bg-live.jpg"
               alt="Fond L'Intelligent TV"
+              loading="eager"
+              decoding="async"
               className="h-full w-full object-cover"
             />
           </div>

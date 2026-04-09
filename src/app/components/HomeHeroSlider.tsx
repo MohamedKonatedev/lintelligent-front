@@ -153,6 +153,7 @@ export default function HomeHeroSlider() {
                     src={slide.imageDesktop}
                     alt={slide.title}
                     loading={index === current ? "eager" : "lazy"}
+                    decoding="async"
                   />
                 </picture>
 
@@ -161,7 +162,13 @@ export default function HomeHeroSlider() {
 
                 <div className="itv-panel">
                   <div className="itv-panel__inner">
-                    <img className="itv-slide__logo" src={slide.logo} alt={slide.title} />
+                    <img
+                      className="itv-slide__logo"
+                      src={slide.logo}
+                      alt={slide.title}
+                      loading={index === current ? "eager" : "lazy"}
+                      decoding="async"
+                    />
 
                     <div className="itv-schedule">
                       <div className="itv-schedule__day">{slide.day}</div>

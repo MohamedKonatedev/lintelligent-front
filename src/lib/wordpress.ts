@@ -68,7 +68,9 @@ export function getFeaturedImage(post: WpPost): string | null {
 
   if (!url) return null;
 
-  return url.replace("https://cms.lintelligent.tv", "http://cms.lintelligent.tv");
+  return url
+    .replace("http://cms.lintelligent.tv", "https://cms.lintelligent.tv")
+    .replace("https://cms.lintelligent.tv", "https://cms.lintelligent.tv");
 }
 
 export function stripHtml(html: string): string {

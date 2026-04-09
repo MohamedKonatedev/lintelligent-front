@@ -1,4 +1,3 @@
-import Image from "next/image";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import SiteHeader from "@/app/components/SiteHeader";
@@ -274,14 +273,12 @@ export default async function VideoPage({ params }: PageProps) {
               className="group overflow-hidden rounded-[20px] border border-white/10 bg-white/[0.04] transition hover:-translate-y-1 hover:bg-white/[0.06]"
             >
               <div className="relative aspect-[3/4] overflow-hidden bg-black">
-                <Image
+                <img
                   src={getFeaturedImage(item) || "/home/slide-1.png"}
                   alt={stripHtml(item.title?.rendered || "")}
-                  fill
-                  unoptimized
-                  priority={relatedIndex < 6}
-                  sizes="(max-width: 1024px) 100vw, 58vw"
-                  className="object-cover transition duration-500 group-hover:scale-[1.04]"
+                  loading={relatedIndex < 4 ? "eager" : "lazy"}
+                  decoding="async"
+                  className="h-full w-full object-cover transition duration-500 group-hover:scale-[1.04]"
                 />
               </div>
 

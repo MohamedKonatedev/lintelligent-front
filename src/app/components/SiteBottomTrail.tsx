@@ -107,6 +107,8 @@ export default function SiteBottomTrail() {
           <img
             src="/home/IAtv-logo.png"
             alt="L'Intelligent TV"
+            loading="lazy"
+            decoding="async"
             className="h-6 w-auto object-contain"
           />
         </div>

@@ -6,6 +6,8 @@ export default function PolitiqueConfidentialitePage() {
             <img
               src="/bg-live.jpg"
               alt="Fond politique de confidentialité"
+              loading="eager"
+              decoding="async"
               className="h-full w-full object-cover"
             />
           </div>

@@ -80,13 +80,12 @@ export default async function ReplayProgramPage({ params }: PageProps) {
       <section className="relative overflow-hidden border-b border-white/10">
         <div className="absolute inset-0">
           {imageFromCMS ? (
-            <Image
+            <img
               src={imageFromCMS as string}
               alt={featuredPost?.title?.rendered || "Image replays"}
-              fill
-              priority
-              sizes="100vw"
-              className="object-cover"
+              loading="eager"
+              decoding="async"
+              className="h-full w-full object-cover"
             />
           ) : (
             <Image

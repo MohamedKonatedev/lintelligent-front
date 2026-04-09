@@ -103,6 +103,8 @@ export default async function LivePage() {
         <img
           src="/bg-live.jpg"
           alt="Fond live"
+          loading="eager"
+          decoding="async"
           className="h-full w-full object-cover"
         />
       </div>

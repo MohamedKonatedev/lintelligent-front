@@ -9,6 +9,8 @@ export default function SiteFooter() {
             <img
               src="/home/IAtv-logo.png"
               alt="L'Intelligent TV"
+              loading="lazy"
+              decoding="async"
               className="mb-4 h-10 w-auto"
             />
 

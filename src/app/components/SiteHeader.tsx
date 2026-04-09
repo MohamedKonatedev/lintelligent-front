@@ -177,6 +177,8 @@ export default function SiteHeader() {
             <img
               src="/home/IAtv-logo.png"
               alt="L'Intelligent TV"
+              loading="eager"
+              decoding="async"
               className="h-10 w-auto object-contain xl:h-11"
             />
           </a>
@@ -219,6 +221,8 @@ export default function SiteHeader() {
             <img
               src="/home/IAtv-logo.png"
               alt="L'Intelligent TV"
+              loading="eager"
+              decoding="async"
               className="h-7 w-auto object-contain sm:h-8"
             />
           </a>
@@ -269,6 +273,8 @@ export default function SiteHeader() {
               <img
                 src="/home/IAtv-logo.png"
                 alt="L'Intelligent TV"
+                loading="eager"
+                decoding="async"
                 className="h-8 w-auto object-contain"
               />
             </a>
@@ -383,6 +389,8 @@ export default function SiteHeader() {
                           <img
                             src={item.image || "/bg-live.jpg"}
                             alt={item.title}
+                            loading="lazy"
+                            decoding="async"
                             className="h-56 w-full object-cover transition duration-300 group-hover:scale-[1.03]"
                           />
                         </div>
@@ -425,6 +433,8 @@ export default function SiteHeader() {
                           <img
                             src={item.image || "/bg-live.jpg"}
                             alt={item.title}
+                            loading="lazy"
+                            decoding="async"
                             className="h-full w-full object-cover"
                           />
                         </div>
