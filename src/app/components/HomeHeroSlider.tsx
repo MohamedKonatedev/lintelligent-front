@@ -2,100 +2,23 @@
 
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
+import { PROGRAMS } from "@/app/programmes/programs";
 
-type Slide = {
-  title: string;
-  day: string;
-  time: string;
-  host: string;
-  mobileMeta: string;
-  href: string;
-  logo: string;
-  imageDesktop: string;
-  imageMobile: string;
-  accent: string;
-  logoD: string;
-  logoT: string;
-  logoM: string;
-};
-
-const slides: Slide[] = [
-  {
-    title: "Les Entretiens",
-    day: "TOUS LES MERCREDIS",
-    time: "18:00 GMT",
-    host: "avec Ibrahim Khalil KONE",
-    mobileMeta: "Tous les mercredis à 18h00",
-    href: "/programmes/les-entretiens",
-    logo: "/home/logo-emission-1.png",
-    imageDesktop: "/home/slide-1.png",
-    imageMobile: "/home/slide-1mobile.png",
-    accent: "#1fb7cc",
-    logoD: "240px",
-    logoT: "150px",
-    logoM: "150px",
-  },
-  {
-    title: "Le Débat",
-    day: "TOUS LES JEUDIS",
-    time: "18:00 GMT",
-    host: "avec Ibrahim Khalil KONE",
-    mobileMeta: "Tous les jeudis à 18h00",
-    href: "/programmes/le-debat",
-    logo: "/home/logo-emission-2.png",
-    imageDesktop: "/home/slide-2.png",
-    imageMobile: "/home/slide-2mobile.png",
-    accent: "#1fc423",
-    logoD: "295px",
-    logoT: "188px",
-    logoM: "92px",
-  },
-  {
-    title: "À vous la parole",
-    day: "TOUS LES MARDIS",
-    time: "18:00 GMT",
-    host: "avec Ange KOUADIO",
-    mobileMeta: "Tous les mardis à 18h00",
-    href: "/programmes/a-vous-la-parole",
-    logo: "/home/logo-emission-3.png",
-    imageDesktop: "/home/slide-3.png",
-    imageMobile: "/home/slide-3mobile.png",
-    accent: "#e21a23",
-    logoD: "360px",
-    logoT: "240px",
-    logoM: "108px",
-  },
-  {
-    title: "L'Invité",
-    day: "TOUS LES MARDIS",
-    time: "10:30 GMT",
-    host: "avec Ange KOUADIO",
-    mobileMeta: "Tous les mardis à 10h30",
-    href: "/programmes/linvite",
-    logo: "/home/logo-emission-4.png",
-    imageDesktop: "/home/slide-4.png",
-    imageMobile: "/home/slide-4mobile.png",
-    accent: "#d9a11a",
-    logoD: "350px",
-    logoT: "230px",
-    logoM: "130px",
-  },
-  {
-    title: "La Quotidienne du Sport",
-    day: "TOUS LES JOURS",
-    time: "19:00 GMT",
-    host: "avec Ange KOUADIO",
-    mobileMeta: "Tous les jours à 19h00",
-    href: "/programmes/la-quotidienne-du-sport",
-    logo: "/home/logo-emission-5.png",
-    imageDesktop: "/home/slide-5.png",
-    imageMobile: "/home/slide-5mobile.png",
-    accent: "#2b8cff",
-    logoD: "345px",
-    logoT: "225px",
-    logoM: "150px",
-  },
-];
+const slides = PROGRAMS.map((p) => ({
+  title: p.title,
+  day: p.day,
+  time: p.time,
+  host: p.host,
+  mobileMeta: p.mobileMeta,
+  href: p.href,
+  logo: p.logo,
+  imageDesktop: p.imageDesktop,
+  imageMobile: p.imageMobile,
+  accent: p.accent,
+  logoD: p.logoD,
+  logoT: p.logoT,
+  logoM: p.logoM,
+}));
 
 export default function HomeHeroSlider() {
   const [current, setCurrent] = useState(0);

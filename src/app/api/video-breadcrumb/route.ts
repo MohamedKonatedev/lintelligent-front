@@ -32,8 +32,9 @@ function toProgramHref(name: string) {
     "A vous la parole": "/programmes/a-vous-la-parole",
     "Les Entretiens": "/programmes/les-entretiens",
     "La Quotidienne du Sport": "/programmes/la-quotidienne-du-sport",
-    "Actu Sport": "/programmes/actu-sport",
-    "Grand Format": "/programmes/grand-format",
+    "La Revue de Presse Grand Format":
+      "/programmes/la-revue-de-presse-grand-format",
+    "Grand Format": "/programmes/la-revue-de-presse-grand-format",
     "L'Intelligent Club": "/programmes/lintelligent-club",
   };
 

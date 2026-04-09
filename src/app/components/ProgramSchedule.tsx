@@ -46,7 +46,7 @@ export const SCHEDULE_BY_DAY: Record<DayKey, ScheduleItem[]> = {
       title: "Grand format",
       category: "MAGAZINE",
       time: "06:00 GMT",
-      image: "/home/slide-1mobile.png",
+      image: "/programs/la-revue-de-presse-grand-format-hero-mobile.jpg",
       accent: "#1fb7cc",
     },
     {
@@ -54,7 +54,7 @@ export const SCHEDULE_BY_DAY: Record<DayKey, ScheduleItem[]> = {
       title: "L’invité",
       category: "ENTRETIEN",
       time: "07:10 GMT",
-      image: "/home/slide-4mobile.png",
+      image: "/programs/linvite-hero-mobile.jpg",
       accent: "#d9a11a",
     },
     {
@@ -62,7 +62,7 @@ export const SCHEDULE_BY_DAY: Record<DayKey, ScheduleItem[]> = {
       title: "À vous la parole",
       category: "DÉBAT",
       time: "07:50 GMT",
-      image: "/home/slide-3mobile.png",
+      image: "/programs/a-vous-la-parole-hero-mobile.jpg",
       accent: "#e21a23",
     },
     {
@@ -70,7 +70,7 @@ export const SCHEDULE_BY_DAY: Record<DayKey, ScheduleItem[]> = {
       title: "Les entretiens",
       category: "ENTRETIENS",
       time: "08:30 GMT",
-      image: "/home/slide-1mobile.png",
+      image: "/programs/les-entretiens-hero-mobile.jpg",
       accent: "#1fb7cc",
     },
     {
@@ -78,7 +78,7 @@ export const SCHEDULE_BY_DAY: Record<DayKey, ScheduleItem[]> = {
       title: "Le débat",
       category: "DÉBAT",
       time: "10:20 GMT",
-      image: "/home/slide-2mobile.png",
+      image: "/programs/le-debat-hero-mobile.jpg",
       accent: "#1fc423",
     },
     {
@@ -86,7 +86,7 @@ export const SCHEDULE_BY_DAY: Record<DayKey, ScheduleItem[]> = {
       title: "Grand format",
       category: "MAGAZINE",
       time: "13:30 GMT",
-      image: "/home/slide-1mobile.png",
+      image: "/programs/la-revue-de-presse-grand-format-hero-mobile.jpg",
       accent: "#1fb7cc",
     },
     {
@@ -94,7 +94,7 @@ export const SCHEDULE_BY_DAY: Record<DayKey, ScheduleItem[]> = {
       title: "Le débat",
       category: "DÉBAT",
       time: "19:00 GMT",
-      image: "/home/slide-2mobile.png",
+      image: "/programs/le-debat-hero-mobile.jpg",
       accent: "#1fc423",
     },
     {
@@ -102,7 +102,7 @@ export const SCHEDULE_BY_DAY: Record<DayKey, ScheduleItem[]> = {
       title: "L’intelligent club",
       category: "TALK-SHOW",
       time: "20:20 GMT",
-      image: "/home/slide-5mobile.png",
+      image: "/programs/lintelligent-club-hero-mobile.jpg",
       accent: "#2b8cff",
     },
     {
@@ -110,7 +110,7 @@ export const SCHEDULE_BY_DAY: Record<DayKey, ScheduleItem[]> = {
       title: "À vous la parole",
       category: "DÉBAT",
       time: "21:30 GMT",
-      image: "/home/slide-3mobile.png",
+      image: "/programs/a-vous-la-parole-hero-mobile.jpg",
       accent: "#e21a23",
     },
     {
@@ -118,7 +118,7 @@ export const SCHEDULE_BY_DAY: Record<DayKey, ScheduleItem[]> = {
       title: "Grand format (rediff)",
       category: "REDIFFUSION",
       time: "22:10 GMT",
-      image: "/home/slide-1mobile.png",
+      image: "/programs/la-revue-de-presse-grand-format-hero-mobile.jpg",
       accent: "#1fb7cc",
     },
   ],
@@ -129,7 +129,7 @@ export const SCHEDULE_BY_DAY: Record<DayKey, ScheduleItem[]> = {
       title: "L’intelligent club",
       category: "TALK-SHOW",
       time: "06:00 GMT",
-      image: "/home/slide-5mobile.png",
+      image: "/programs/lintelligent-club-hero-mobile.jpg",
       accent: "#2b8cff",
     },
     {
@@ -137,7 +137,7 @@ export const SCHEDULE_BY_DAY: Record<DayKey, ScheduleItem[]> = {
       title: "L’invité",
       category: "ENTRETIEN",
       time: "07:10 GMT",
-      image: "/home/slide-4mobile.png",
+      image: "/programs/linvite-hero-mobile.jpg",
       accent: "#d9a11a",
     },
     {
@@ -145,7 +145,7 @@ export const SCHEDULE_BY_DAY: Record<DayKey, ScheduleItem[]> = {
       title: "Les entretiens",
       category: "ENTRETIENS",
       time: "07:50 GMT",
-      image: "/home/slide-1mobile.png",
+      image: "/programs/les-entretiens-hero-mobile.jpg",
       accent: "#1fb7cc",
     },
     {
@@ -153,7 +153,7 @@ export const SCHEDULE_BY_DAY: Record<DayKey, ScheduleItem[]> = {
       title: "À vous la parole",
       category: "DÉBAT",
       time: "08:30 GMT",
-      image: "/home/slide-3mobile.png",
+      image: "/programs/a-vous-la-parole-hero-mobile.jpg",
       accent: "#e21a23",
     },
     {
@@ -161,7 +161,7 @@ export const SCHEDULE_BY_DAY: Record<DayKey, ScheduleItem[]> = {
       title: "Le débat",
       category: "DÉBAT",
       time: "10:20 GMT",
-      image: "/home/slide-2mobile.png",
+      image: "/programs/le-debat-hero-mobile.jpg",
       accent: "#1fc423",
     },
     {
@@ -169,7 +169,7 @@ export const SCHEDULE_BY_DAY: Record<DayKey, ScheduleItem[]> = {
       title: "Grand format",
       category: "MAGAZINE",
       time: "13:30 GMT",
-      image: "/home/slide-1mobile.png",
+      image: "/programs/la-revue-de-presse-grand-format-hero-mobile.jpg",
       accent: "#1fb7cc",
     },
     {
@@ -177,7 +177,7 @@ export const SCHEDULE_BY_DAY: Record<DayKey, ScheduleItem[]> = {
       title: "Le débat",
       category: "DÉBAT",
       time: "19:00 GMT",
-      image: "/home/slide-2mobile.png",
+      image: "/programs/le-debat-hero-mobile.jpg",
       accent: "#1fc423",
     },
     {
@@ -185,7 +185,7 @@ export const SCHEDULE_BY_DAY: Record<DayKey, ScheduleItem[]> = {
       title: "Grand format",
       category: "MAGAZINE",
       time: "20:20 GMT",
-      image: "/home/slide-1mobile.png",
+      image: "/programs/la-revue-de-presse-grand-format-hero-mobile.jpg",
       accent: "#1fb7cc",
     },
     {
@@ -193,7 +193,7 @@ export const SCHEDULE_BY_DAY: Record<DayKey, ScheduleItem[]> = {
       title: "Les entretiens",
       category: "ENTRETIENS",
       time: "21:30 GMT",
-      image: "/home/slide-1mobile.png",
+      image: "/programs/les-entretiens-hero-mobile.jpg",
       accent: "#1fb7cc",
     },
     {
@@ -201,7 +201,7 @@ export const SCHEDULE_BY_DAY: Record<DayKey, ScheduleItem[]> = {
       title: "L’intelligent club (rediff)",
       category: "REDIFFUSION",
       time: "22:10 GMT",
-      image: "/home/slide-5mobile.png",
+      image: "/programs/lintelligent-club-hero-mobile.jpg",
       accent: "#2b8cff",
     },
   ],
@@ -212,7 +212,7 @@ export const SCHEDULE_BY_DAY: Record<DayKey, ScheduleItem[]> = {
       title: "Grand format",
       category: "MAGAZINE",
       time: "06:00 GMT",
-      image: "/home/slide-1mobile.png",
+      image: "/programs/la-revue-de-presse-grand-format-hero-mobile.jpg",
       accent: "#1fb7cc",
     },
     {
@@ -220,7 +220,7 @@ export const SCHEDULE_BY_DAY: Record<DayKey, ScheduleItem[]> = {
       title: "À vous la parole",
       category: "DÉBAT",
       time: "07:10 GMT",
-      image: "/home/slide-3mobile.png",
+      image: "/programs/a-vous-la-parole-hero-mobile.jpg",
       accent: "#e21a23",
     },
     {
@@ -228,7 +228,7 @@ export const SCHEDULE_BY_DAY: Record<DayKey, ScheduleItem[]> = {
       title: "L’invité",
       category: "ENTRETIEN",
       time: "07:50 GMT",
-      image: "/home/slide-4mobile.png",
+      image: "/programs/linvite-hero-mobile.jpg",
       accent: "#d9a11a",
     },
     {
@@ -236,7 +236,7 @@ export const SCHEDULE_BY_DAY: Record<DayKey, ScheduleItem[]> = {
       title: "Les entretiens",
       category: "ENTRETIENS",
       time: "08:30 GMT",
-      image: "/home/slide-1mobile.png",
+      image: "/programs/les-entretiens-hero-mobile.jpg",
       accent: "#1fb7cc",
     },
     {
@@ -244,7 +244,7 @@ export const SCHEDULE_BY_DAY: Record<DayKey, ScheduleItem[]> = {
       title: "Le débat",
       category: "DÉBAT",
       time: "10:20 GMT",
-      image: "/home/slide-2mobile.png",
+      image: "/programs/le-debat-hero-mobile.jpg",
       accent: "#1fc423",
     },
     {
@@ -252,7 +252,7 @@ export const SCHEDULE_BY_DAY: Record<DayKey, ScheduleItem[]> = {
       title: "L’intelligent club",
       category: "TALK-SHOW",
       time: "13:30 GMT",
-      image: "/home/slide-5mobile.png",
+      image: "/programs/lintelligent-club-hero-mobile.jpg",
       accent: "#2b8cff",
     },
     {
@@ -260,7 +260,7 @@ export const SCHEDULE_BY_DAY: Record<DayKey, ScheduleItem[]> = {
       title: "Le débat",
       category: "DÉBAT",
       time: "19:00 GMT",
-      image: "/home/slide-2mobile.png",
+      image: "/programs/le-debat-hero-mobile.jpg",
       accent: "#1fc423",
     },
     {
@@ -268,7 +268,7 @@ export const SCHEDULE_BY_DAY: Record<DayKey, ScheduleItem[]> = {
       title: "L’intelligent club",
       category: "TALK-SHOW",
       time: "20:20 GMT",
-      image: "/home/slide-5mobile.png",
+      image: "/programs/lintelligent-club-hero-mobile.jpg",
       accent: "#2b8cff",
     },
     {
@@ -276,7 +276,7 @@ export const SCHEDULE_BY_DAY: Record<DayKey, ScheduleItem[]> = {
       title: "L’invité",
       category: "ENTRETIEN",
       time: "21:30 GMT",
-      image: "/home/slide-4mobile.png",
+      image: "/programs/linvite-hero-mobile.jpg",
       accent: "#d9a11a",
     },
     {
@@ -284,7 +284,7 @@ export const SCHEDULE_BY_DAY: Record<DayKey, ScheduleItem[]> = {
       title: "Grand format (rediff)",
       category: "REDIFFUSION",
       time: "22:10 GMT",
-      image: "/home/slide-1mobile.png",
+      image: "/programs/la-revue-de-presse-grand-format-hero-mobile.jpg",
       accent: "#1fb7cc",
     },
   ],
@@ -295,7 +295,7 @@ export const SCHEDULE_BY_DAY: Record<DayKey, ScheduleItem[]> = {
       title: "Les entretiens",
       category: "ENTRETIENS",
       time: "06:00 GMT",
-      image: "/home/slide-1mobile.png",
+      image: "/programs/les-entretiens-hero-mobile.jpg",
       accent: "#1fb7cc",
     },
     {
@@ -303,7 +303,7 @@ export const SCHEDULE_BY_DAY: Record<DayKey, ScheduleItem[]> = {
       title: "L’invité",
       category: "ENTRETIEN",
       time: "07:10 GMT",
-      image: "/home/slide-4mobile.png",
+      image: "/programs/linvite-hero-mobile.jpg",
       accent: "#d9a11a",
     },
     {
@@ -311,7 +311,7 @@ export const SCHEDULE_BY_DAY: Record<DayKey, ScheduleItem[]> = {
       title: "À vous la parole",
       category: "DÉBAT",
       time: "07:50 GMT",
-      image: "/home/slide-3mobile.png",
+      image: "/programs/a-vous-la-parole-hero-mobile.jpg",
       accent: "#e21a23",
     },
     {
@@ -319,7 +319,7 @@ export const SCHEDULE_BY_DAY: Record<DayKey, ScheduleItem[]> = {
       title: "L’intelligent club",
       category: "TALK-SHOW",
       time: "08:30 GMT",
-      image: "/home/slide-5mobile.png",
+      image: "/programs/lintelligent-club-hero-mobile.jpg",
       accent: "#2b8cff",
     },
     {
@@ -327,7 +327,7 @@ export const SCHEDULE_BY_DAY: Record<DayKey, ScheduleItem[]> = {
       title: "Le débat",
       category: "DÉBAT",
       time: "10:20 GMT",
-      image: "/home/slide-2mobile.png",
+      image: "/programs/le-debat-hero-mobile.jpg",
       accent: "#1fc423",
     },
     {
@@ -335,7 +335,7 @@ export const SCHEDULE_BY_DAY: Record<DayKey, ScheduleItem[]> = {
       title: "Grand format",
       category: "MAGAZINE",
       time: "13:30 GMT",
-      image: "/home/slide-1mobile.png",
+      image: "/programs/la-revue-de-presse-grand-format-hero-mobile.jpg",
       accent: "#1fb7cc",
     },
     {
@@ -343,7 +343,7 @@ export const SCHEDULE_BY_DAY: Record<DayKey, ScheduleItem[]> = {
       title: "Le débat",
       category: "DÉBAT",
       time: "19:00 GMT",
-      image: "/home/slide-2mobile.png",
+      image: "/programs/le-debat-hero-mobile.jpg",
       accent: "#1fc423",
     },
     {
@@ -351,7 +351,7 @@ export const SCHEDULE_BY_DAY: Record<DayKey, ScheduleItem[]> = {
       title: "Grand format",
       category: "MAGAZINE",
       time: "20:20 GMT",
-      image: "/home/slide-1mobile.png",
+      image: "/programs/la-revue-de-presse-grand-format-hero-mobile.jpg",
       accent: "#1fb7cc",
     },
     {
@@ -359,7 +359,7 @@ export const SCHEDULE_BY_DAY: Record<DayKey, ScheduleItem[]> = {
       title: "À vous la parole",
       category: "DÉBAT",
       time: "21:30 GMT",
-      image: "/home/slide-3mobile.png",
+      image: "/programs/a-vous-la-parole-hero-mobile.jpg",
       accent: "#e21a23",
     },
     {
@@ -367,7 +367,7 @@ export const SCHEDULE_BY_DAY: Record<DayKey, ScheduleItem[]> = {
       title: "L’intelligent club (rediff)",
       category: "REDIFFUSION",
       time: "22:10 GMT",
-      image: "/home/slide-5mobile.png",
+      image: "/programs/lintelligent-club-hero-mobile.jpg",
       accent: "#2b8cff",
     },
   ],
@@ -378,7 +378,7 @@ export const SCHEDULE_BY_DAY: Record<DayKey, ScheduleItem[]> = {
       title: "Grand format",
       category: "MAGAZINE",
       time: "06:00 GMT",
-      image: "/home/slide-1mobile.png",
+      image: "/programs/la-revue-de-presse-grand-format-hero-mobile.jpg",
       accent: "#1fb7cc",
     },
     {
@@ -386,7 +386,7 @@ export const SCHEDULE_BY_DAY: Record<DayKey, ScheduleItem[]> = {
       title: "À vous la parole",
       category: "DÉBAT",
       time: "07:10 GMT",
-      image: "/home/slide-3mobile.png",
+      image: "/programs/a-vous-la-parole-hero-mobile.jpg",
       accent: "#e21a23",
     },
     {
@@ -394,7 +394,7 @@ export const SCHEDULE_BY_DAY: Record<DayKey, ScheduleItem[]> = {
       title: "L’invité",
       category: "ENTRETIEN",
       time: "07:50 GMT",
-      image: "/home/slide-4mobile.png",
+      image: "/programs/linvite-hero-mobile.jpg",
       accent: "#d9a11a",
     },
     {
@@ -402,7 +402,7 @@ export const SCHEDULE_BY_DAY: Record<DayKey, ScheduleItem[]> = {
       title: "Les entretiens",
       category: "ENTRETIENS",
       time: "08:30 GMT",
-      image: "/home/slide-1mobile.png",
+      image: "/programs/les-entretiens-hero-mobile.jpg",
       accent: "#1fb7cc",
     },
     {
@@ -410,7 +410,7 @@ export const SCHEDULE_BY_DAY: Record<DayKey, ScheduleItem[]> = {
       title: "Le débat",
       category: "DÉBAT",
       time: "10:20 GMT",
-      image: "/home/slide-2mobile.png",
+      image: "/programs/le-debat-hero-mobile.jpg",
       accent: "#1fc423",
     },
     {
@@ -418,7 +418,7 @@ export const SCHEDULE_BY_DAY: Record<DayKey, ScheduleItem[]> = {
       title: "L’intelligent club",
       category: "TALK-SHOW",
       time: "13:30 GMT",
-      image: "/home/slide-5mobile.png",
+      image: "/programs/lintelligent-club-hero-mobile.jpg",
       accent: "#2b8cff",
     },
     {
@@ -426,7 +426,7 @@ export const SCHEDULE_BY_DAY: Record<DayKey, ScheduleItem[]> = {
       title: "Le débat",
       category: "DÉBAT",
       time: "19:00 GMT",
-      image: "/home/slide-2mobile.png",
+      image: "/programs/le-debat-hero-mobile.jpg",
       accent: "#1fc423",
     },
     {
@@ -434,7 +434,7 @@ export const SCHEDULE_BY_DAY: Record<DayKey, ScheduleItem[]> = {
       title: "L’intelligent club",
       category: "TALK-SHOW",
       time: "20:20 GMT",
-      image: "/home/slide-5mobile.png",
+      image: "/programs/lintelligent-club-hero-mobile.jpg",
       accent: "#2b8cff",
     },
     {
@@ -442,7 +442,7 @@ export const SCHEDULE_BY_DAY: Record<DayKey, ScheduleItem[]> = {
       title: "Les entretiens",
       category: "ENTRETIENS",
       time: "21:30 GMT",
-      image: "/home/slide-1mobile.png",
+      image: "/programs/les-entretiens-hero-mobile.jpg",
       accent: "#1fb7cc",
     },
     {
@@ -450,7 +450,7 @@ export const SCHEDULE_BY_DAY: Record<DayKey, ScheduleItem[]> = {
       title: "Grand format (rediff)",
       category: "REDIFFUSION",
       time: "22:10 GMT",
-      image: "/home/slide-1mobile.png",
+      image: "/programs/la-revue-de-presse-grand-format-hero-mobile.jpg",
       accent: "#1fb7cc",
     },
   ],
@@ -461,7 +461,7 @@ export const SCHEDULE_BY_DAY: Record<DayKey, ScheduleItem[]> = {
       title: "Grand format (rediff)",
       category: "REDIFFUSION",
       time: "06:00 GMT",
-      image: "/home/slide-1mobile.png",
+      image: "/programs/la-revue-de-presse-grand-format-hero-mobile.jpg",
       accent: "#1fb7cc",
     },
     {
@@ -469,7 +469,7 @@ export const SCHEDULE_BY_DAY: Record<DayKey, ScheduleItem[]> = {
       title: "L’invité (rediff)",
       category: "REDIFFUSION",
       time: "07:10 GMT",
-      image: "/home/slide-4mobile.png",
+      image: "/programs/linvite-hero-mobile.jpg",
       accent: "#d9a11a",
     },
     {
@@ -477,7 +477,7 @@ export const SCHEDULE_BY_DAY: Record<DayKey, ScheduleItem[]> = {
       title: "Les entretiens (rediff)",
       category: "REDIFFUSION",
       time: "07:50 GMT",
-      image: "/home/slide-1mobile.png",
+      image: "/programs/les-entretiens-hero-mobile.jpg",
       accent: "#1fb7cc",
     },
     {
@@ -485,7 +485,7 @@ export const SCHEDULE_BY_DAY: Record<DayKey, ScheduleItem[]> = {
       title: "À vous la parole (rediff)",
       category: "REDIFFUSION",
       time: "08:30 GMT",
-      image: "/home/slide-3mobile.png",
+      image: "/programs/a-vous-la-parole-hero-mobile.jpg",
       accent: "#e21a23",
     },
     {
@@ -493,7 +493,7 @@ export const SCHEDULE_BY_DAY: Record<DayKey, ScheduleItem[]> = {
       title: "Le débat (rediff)",
       category: "REDIFFUSION",
       time: "10:20 GMT",
-      image: "/home/slide-2mobile.png",
+      image: "/programs/le-debat-hero-mobile.jpg",
       accent: "#1fc423",
     },
     {
@@ -501,7 +501,7 @@ export const SCHEDULE_BY_DAY: Record<DayKey, ScheduleItem[]> = {
       title: "L’invité",
       category: "ENTRETIEN",
       time: "12:50 GMT",
-      image: "/home/slide-4mobile.png",
+      image: "/programs/linvite-hero-mobile.jpg",
       accent: "#d9a11a",
     },
     {
@@ -509,7 +509,7 @@ export const SCHEDULE_BY_DAY: Record<DayKey, ScheduleItem[]> = {
       title: "À vous la parole",
       category: "DÉBAT",
       time: "14:40 GMT",
-      image: "/home/slide-3mobile.png",
+      image: "/programs/a-vous-la-parole-hero-mobile.jpg",
       accent: "#e21a23",
     },
     {
@@ -517,7 +517,7 @@ export const SCHEDULE_BY_DAY: Record<DayKey, ScheduleItem[]> = {
       title: "Le débat",
       category: "DÉBAT",
       time: "19:00 GMT",
-      image: "/home/slide-2mobile.png",
+      image: "/programs/le-debat-hero-mobile.jpg",
       accent: "#1fc423",
     },
     {
@@ -525,7 +525,7 @@ export const SCHEDULE_BY_DAY: Record<DayKey, ScheduleItem[]> = {
       title: "L’intelligent club",
       category: "TALK-SHOW",
       time: "20:20 GMT",
-      image: "/home/slide-5mobile.png",
+      image: "/programs/lintelligent-club-hero-mobile.jpg",
       accent: "#2b8cff",
     },
     {
@@ -533,7 +533,7 @@ export const SCHEDULE_BY_DAY: Record<DayKey, ScheduleItem[]> = {
       title: "À vous la parole",
       category: "DÉBAT",
       time: "21:30 GMT",
-      image: "/home/slide-3mobile.png",
+      image: "/programs/a-vous-la-parole-hero-mobile.jpg",
       accent: "#e21a23",
     },
   ],
@@ -544,7 +544,7 @@ export const SCHEDULE_BY_DAY: Record<DayKey, ScheduleItem[]> = {
       title: "L’intelligent club (rediff)",
       category: "REDIFFUSION",
       time: "06:00 GMT",
-      image: "/home/slide-5mobile.png",
+      image: "/programs/lintelligent-club-hero-mobile.jpg",
       accent: "#2b8cff",
     },
     {
@@ -552,7 +552,7 @@ export const SCHEDULE_BY_DAY: Record<DayKey, ScheduleItem[]> = {
       title: "À vous la parole (rediff)",
       category: "REDIFFUSION",
       time: "07:10 GMT",
-      image: "/home/slide-3mobile.png",
+      image: "/programs/a-vous-la-parole-hero-mobile.jpg",
       accent: "#e21a23",
     },
     {
@@ -560,7 +560,7 @@ export const SCHEDULE_BY_DAY: Record<DayKey, ScheduleItem[]> = {
       title: "Les entretiens (rediff)",
       category: "REDIFFUSION",
       time: "07:50 GMT",
-      image: "/home/slide-1mobile.png",
+      image: "/programs/les-entretiens-hero-mobile.jpg",
       accent: "#1fb7cc",
     },
     {
@@ -568,7 +568,7 @@ export const SCHEDULE_BY_DAY: Record<DayKey, ScheduleItem[]> = {
       title: "L’invité (rediff)",
       category: "REDIFFUSION",
       time: "08:30 GMT",
-      image: "/home/slide-4mobile.png",
+      image: "/programs/linvite-hero-mobile.jpg",
       accent: "#d9a11a",
     },
     {
@@ -576,7 +576,7 @@ export const SCHEDULE_BY_DAY: Record<DayKey, ScheduleItem[]> = {
       title: "Le débat (rediff)",
       category: "REDIFFUSION",
       time: "10:20 GMT",
-      image: "/home/slide-2mobile.png",
+      image: "/programs/le-debat-hero-mobile.jpg",
       accent: "#1fc423",
     },
     {
@@ -584,7 +584,7 @@ export const SCHEDULE_BY_DAY: Record<DayKey, ScheduleItem[]> = {
       title: "Les entretiens",
       category: "ENTRETIENS",
       time: "12:50 GMT",
-      image: "/home/slide-1mobile.png",
+      image: "/programs/les-entretiens-hero-mobile.jpg",
       accent: "#1fb7cc",
     },
     {
@@ -592,7 +592,7 @@ export const SCHEDULE_BY_DAY: Record<DayKey, ScheduleItem[]> = {
       title: "L’invité",
       category: "ENTRETIEN",
       time: "14:40 GMT",
-      image: "/home/slide-4mobile.png",
+      image: "/programs/linvite-hero-mobile.jpg",
       accent: "#d9a11a",
     },
     {
@@ -600,7 +600,7 @@ export const SCHEDULE_BY_DAY: Record<DayKey, ScheduleItem[]> = {
       title: "Le débat",
       category: "DÉBAT",
       time: "19:00 GMT",
-      image: "/home/slide-2mobile.png",
+      image: "/programs/le-debat-hero-mobile.jpg",
       accent: "#1fc423",
     },
     {
@@ -608,7 +608,7 @@ export const SCHEDULE_BY_DAY: Record<DayKey, ScheduleItem[]> = {
       title: "Grand format",
       category: "MAGAZINE",
       time: "20:20 GMT",
-      image: "/home/slide-1mobile.png",
+      image: "/programs/la-revue-de-presse-grand-format-hero-mobile.jpg",
       accent: "#1fb7cc",
     },
     {
@@ -616,7 +616,7 @@ export const SCHEDULE_BY_DAY: Record<DayKey, ScheduleItem[]> = {
       title: "Les entretiens",
       category: "ENTRETIENS",
       time: "21:30 GMT",
-      image: "/home/slide-1mobile.png",
+      image: "/programs/les-entretiens-hero-mobile.jpg",
       accent: "#1fb7cc",
     },
   ],

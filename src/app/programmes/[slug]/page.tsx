@@ -64,7 +64,7 @@ export default async function ProgramPage({ params }: PageProps) {
     "linvite",
     "la-quotidienne-du-sport",
     "la-revue-de-presse-grand-format",
-    "actu-sport",
+    "lintelligent-club",
   ];
 
   const suggestedPrograms = Object.values(PROGRAMS_MAP)

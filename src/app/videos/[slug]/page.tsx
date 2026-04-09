@@ -261,7 +261,7 @@ export default async function VideoPage({ params }: PageProps) {
             >
               <div className="relative aspect-[3/4] overflow-hidden bg-black">
                 <img
-                  src={getReplayCardImage(item) || "/home/slide-1.png"}
+                  src={getReplayCardImage(item) || "/programs/les-entretiens-home-square.jpg"}
                   alt={stripHtml(item.title?.rendered || "")}
                   loading={relatedIndex < 4 ? "eager" : "lazy"}
                   decoding="async"

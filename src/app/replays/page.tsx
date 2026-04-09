@@ -30,6 +30,8 @@ export default async function ReplaysPage() {
     "a-vous-la-parole",
     "linvite",
     "la-quotidienne-du-sport",
+    "la-revue-de-presse-grand-format",
+    "lintelligent-club",
   ];
 
   const categories = await Promise.all(
@@ -53,7 +55,7 @@ export default async function ReplaysPage() {
     title: video.title?.rendered || "",
     excerpt: stripHtml(video.excerpt?.rendered || ""),
     date: formatDate(video.date),
-    image: getReplayCardImage(video) || "/home/slide-1.png",
+    image: getReplayCardImage(video) || "/programs/les-entretiens-home-square.jpg",
     categories: Array.isArray(video.categories) ? video.categories : [],
   }));
 

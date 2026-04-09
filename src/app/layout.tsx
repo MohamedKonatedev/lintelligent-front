@@ -10,8 +10,14 @@ export const metadata: Metadata = {
   description:
     "L'Intelligent TV est une chaîne d’information en continu disponible 24h/24. Suivez le direct, les replays et nos programmes.",
   icons: {
-    icon: "/favicon.ico",
+    icon: [
+      { url: "/favicon.svg", type: "image/svg+xml" },
+      { url: "/favicon.ico", sizes: "48x48" },
+      { url: "/favicon-96x96.png", sizes: "96x96", type: "image/png" },
+    ],
+    apple: "/apple-touch-icon.png",
   },
+  manifest: "/site.webmanifest",
   openGraph: {
     title: "L'Intelligent TV",
     description:
@@ -48,16 +54,16 @@ export default function RootLayout({
         <link
           rel="preload"
           as="image"
-          href="/home/slide-1mobile.png"
+          href="/programs/les-entretiens-hero-mobile.jpg"
           media="(max-width: 767px)"
         />
         <link
           rel="preload"
           as="image"
-          href="/home/slide-1.png"
+          href="/programs/les-entretiens-hero-desktop.jpg"
           media="(min-width: 768px)"
         />
-        <link rel="preload" as="image" href="/home/logo-emission-1.png" />
+        <link rel="preload" as="image" href="/programs/les-entretiens-logo.png" />
       </head>
       <body className="bg-[#050816] text-white">
         <SiteHeader />

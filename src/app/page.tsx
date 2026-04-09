@@ -1,44 +1,13 @@
 import HomeHeroSlider from "./components/HomeHeroSlider";
 import LivePlayer from "./components/LivePlayer";
+import { PROGRAMS } from "./programmes/programs";
 
-const emissions = [
-  {
-    title: "La Quotidienne du Sport",
-    href: "/programmes/la-quotidienne-du-sport",
-    image: "/home/la quotidienne du sport.png",
-    accent: "#2b8cff",
-  },
-  {
-    title: "L'Invité",
-    href: "/programmes/linvite",
-    image: "/home/L'INVITÉ.png",
-    accent: "#d9a11a",
-  },
-  {
-    title: "Le Débat",
-    href: "/programmes/le-debat",
-    image: "/home/le débat.png",
-    accent: "#1fc423",
-  },
-  {
-    title: "À vous la parole",
-    href: "/programmes/a-vous-la-parole",
-    image: "/home/à vous la parole.png",
-    accent: "#e21a23",
-  },
-  {
-    title: "Les Entretiens",
-    href: "/programmes/les-entretiens",
-    image: "/home/les entretiens.png",
-    accent: "#1fb7cc",
-  },
-  {
-    title: "Actu Sport",
-    href: "/programmes/actu-sport",
-    image: "/home/actu sport.png",
-    accent: "#16a34a",
-  },
-];
+const emissions = PROGRAMS.map((p) => ({
+  title: p.title,
+  href: p.href,
+  image: `/programs/${p.slug}-home-square.jpg`,
+  accent: p.accent,
+}));
 
 export default function HomePage() {
   return (

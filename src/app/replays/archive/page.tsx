@@ -109,7 +109,7 @@ export default async function ReplaysArchivePage({
               >
                 <div className="relative aspect-[3/4] overflow-hidden bg-black">
                   <img
-                    src={getReplayCardImage(video) || "/home/slide-1.png"}
+                    src={getReplayCardImage(video) || "/programs/les-entretiens-home-square.jpg"}
                     alt={video.title?.rendered || "Replay"}
                     loading={index < 5 ? "eager" : "lazy"}
                     decoding="async"
