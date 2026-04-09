@@ -20,7 +20,7 @@ export const metadata: Metadata = {
     siteName: "L'Intelligent TV",
     images: [
       {
-        url: "/og-image.jpg",
+        url: "/og-image.jpeg",
         width: 1200,
         height: 630,
       },
@@ -33,7 +33,7 @@ export const metadata: Metadata = {
     title: "L'Intelligent TV",
     description:
       "Suivez l'actualité en direct, les replays et nos programmes sur L'Intelligent TV.",
-    images: ["/og-image.jpg"],
+    images: ["/og-image.jpeg"],
   },
 };
 
