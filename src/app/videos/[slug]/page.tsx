@@ -4,9 +4,10 @@ import SiteHeader from "@/app/components/SiteHeader";
 import ShareButton from "@/app/components/ShareButton";
 import {
   getAllVideos,
-  getFeaturedImage,
+  getReplayCardImage,
   stripHtml,
 } from "@/lib/wordpress";
+import { extractYoutubeVideoId } from "@/lib/youtube-thumbnail";
 
 type PageProps = {
   params: Promise<{
@@ -23,22 +24,8 @@ function formatDate(date: string) {
 }
 
 function getYoutubeEmbed(url: string) {
-  if (!url) return null;
-
-  const patterns = [
-    /youtube\.com\/watch\?v=([^&]+)/,
-    /youtu\.be\/([^?&]+)/,
-    /youtube\.com\/embed\/([^?&]+)/,
-  ];
-
-  for (const pattern of patterns) {
-    const match = url.match(pattern);
-    if (match?.[1]) {
-      return `https://www.youtube.com/embed/${match[1]}`;
-    }
-  }
-
-  return null;
+  const id = extractYoutubeVideoId(url);
+  return id ? `https://www.youtube.com/embed/${id}` : null;
 }
 
 export async function generateMetadata({ params }: PageProps) {
@@ -274,7 +261,7 @@ export default async function VideoPage({ params }: PageProps) {
             >
               <div className="relative aspect-[3/4] overflow-hidden bg-black">
                 <img
-                  src={getFeaturedImage(item) || "/home/slide-1.png"}
+                  src={getReplayCardImage(item) || "/home/slide-1.png"}
                   alt={stripHtml(item.title?.rendered || "")}
                   loading={relatedIndex < 4 ? "eager" : "lazy"}
                   decoding="async"

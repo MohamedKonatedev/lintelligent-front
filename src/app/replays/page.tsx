@@ -3,7 +3,7 @@ import ReplaysCatalog from "@/app/components/ReplaysCatalog";
 import {
   getAllVideos,
   getCategoryBySlug,
-  getFeaturedImage,
+  getReplayCardImage,
   stripHtml,
 } from "@/lib/wordpress";
 import { PROGRAMS_MAP } from "@/app/programmes/programs";
@@ -53,7 +53,7 @@ export default async function ReplaysPage() {
     title: video.title?.rendered || "",
     excerpt: stripHtml(video.excerpt?.rendered || ""),
     date: formatDate(video.date),
-    image: getFeaturedImage(video) || "/home/slide-1.png",
+    image: getReplayCardImage(video) || "/home/slide-1.png",
     categories: Array.isArray(video.categories) ? video.categories : [],
   }));
 

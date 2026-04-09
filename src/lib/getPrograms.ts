@@ -182,33 +182,42 @@ function makeProgramKey(date: string, start: string, end: string) {
 }
 
 export async function getPrograms(): Promise<ScheduleProgram[]> {
-  const [emissionsRes, mediaRes, exceptionsRes] = await Promise.all([
-    fetch(`${WP_BASE}/wp-json/wp/v2/emissions?per_page=100&_embed`, {
-      next: { revalidate: 300 },
-    }),
-    fetch(`${WP_BASE}/wp-json/wp/v2/media?per_page=100`, {
-      next: { revalidate: 300 },
-    }),
-    fetch(`${WP_BASE}/wp-json/wp/v2/exceptions-prog?per_page=100`, {
-      next: { revalidate: 60 },
-    }),
-  ]);
+  let emissionsRes: Response;
+  let mediaRes: Response;
+  let exceptionsRes: Response;
 
-  if (!emissionsRes.ok) {
-    throw new Error("Erreur récupération émissions");
+  try {
+    [emissionsRes, mediaRes, exceptionsRes] = await Promise.all([
+      fetch(`${WP_BASE}/wp-json/wp/v2/emissions?per_page=100&_embed`, {
+        next: { revalidate: 300 },
+      }),
+      fetch(`${WP_BASE}/wp-json/wp/v2/media?per_page=100`, {
+        next: { revalidate: 300 },
+      }),
+      fetch(`${WP_BASE}/wp-json/wp/v2/exceptions-prog?per_page=100`, {
+        next: { revalidate: 60 },
+      }),
+    ]);
+  } catch {
+    // Réseau / DNS indisponible (ex. build sans accès au CMS)
+    return [];
   }
 
-  if (!mediaRes.ok) {
-    throw new Error("Erreur récupération médias");
+  if (!emissionsRes.ok || !mediaRes.ok || !exceptionsRes.ok) {
+    return [];
   }
 
-  if (!exceptionsRes.ok) {
-    throw new Error("Erreur récupération exceptions");
-  }
+  let rawEmissions: WpEmission[];
+  let rawMedia: WpMedia[];
+  let rawExceptions: WpException[];
 
-  const rawEmissions: WpEmission[] = await emissionsRes.json();
-  const rawMedia: WpMedia[] = await mediaRes.json();
-  const rawExceptions: WpException[] = await exceptionsRes.json();
+  try {
+    rawEmissions = await emissionsRes.json();
+    rawMedia = await mediaRes.json();
+    rawExceptions = await exceptionsRes.json();
+  } catch {
+    return [];
+  }
 
   const mediaMap = new Map<number, string>(
     rawMedia

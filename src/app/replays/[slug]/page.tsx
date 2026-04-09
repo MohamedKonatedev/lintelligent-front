@@ -6,7 +6,7 @@ import ReplaysArchiveList from "@/app/components/ReplaysArchiveList";
 import {
   getAllVideos,
   getCategoryBySlug,
-  getFeaturedImage,
+  getReplayCardImage,
   stripHtml,
 } from "@/lib/wordpress";
 import { PROGRAMS_MAP } from "@/app/programmes/programs";
@@ -61,7 +61,7 @@ export default async function ReplayProgramPage({ params }: PageProps) {
     : [];
 
   const featuredPost = filteredVideos.length > 0 ? filteredVideos[0] : null;
-  const imageFromCMS = featuredPost ? getFeaturedImage(featuredPost) : null;
+  const imageFromCMS = featuredPost ? getReplayCardImage(featuredPost) : null;
 
   const serializedVideos = filteredVideos.map((video: any) => ({
     id: video.id,
@@ -70,7 +70,7 @@ export default async function ReplayProgramPage({ params }: PageProps) {
     title: video.title?.rendered || "",
     excerpt: stripHtml(video.excerpt?.rendered || ""),
     date: formatDate(video.date),
-    image: getFeaturedImage(video) || program.imageDesktop,
+    image: getReplayCardImage(video) || program.imageDesktop,
   }));
 
   return (

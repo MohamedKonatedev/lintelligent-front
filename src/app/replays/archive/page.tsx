@@ -3,7 +3,7 @@ import SiteHeader from "@/app/components/SiteHeader";
 import {
   getAllVideos,
   getCategoryBySlug,
-  getFeaturedImage,
+  getReplayCardImage,
   stripHtml,
 } from "@/lib/wordpress";
 import { PROGRAMS_MAP } from "@/app/programmes/programs";
@@ -109,7 +109,7 @@ export default async function ReplaysArchivePage({
               >
                 <div className="relative aspect-[3/4] overflow-hidden bg-black">
                   <img
-                    src={getFeaturedImage(video) || "/home/slide-1.png"}
+                    src={getReplayCardImage(video) || "/home/slide-1.png"}
                     alt={video.title?.rendered || "Replay"}
                     loading={index < 5 ? "eager" : "lazy"}
                     decoding="async"
