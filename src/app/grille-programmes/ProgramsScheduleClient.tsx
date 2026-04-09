@@ -505,7 +505,8 @@ export default function ProgramsScheduleClient({ programs }: Props) {
                                     src={program.emission.image}
                                     alt={program.title}
                                     loading={isActive ? "eager" : "lazy"}
-                                    decoding="async"
+                                    decoding={isActive ? "sync" : "async"}
+                                    fetchPriority={isActive ? "high" : "low"}
                                     className="h-full w-full object-cover"
                                   />
                                 ) : (
@@ -601,7 +602,8 @@ export default function ProgramsScheduleClient({ programs }: Props) {
                                   src={program.emission.image}
                                   alt={program.title}
                                   loading={isActive ? "eager" : "lazy"}
-                                  decoding="async"
+                                  decoding={isActive ? "sync" : "async"}
+                                  fetchPriority={isActive ? "high" : "low"}
                                   className="h-full w-full object-cover"
                                 />
                               ) : (

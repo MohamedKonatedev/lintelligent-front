@@ -44,6 +44,21 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="fr" data-scroll-behavior="smooth">
+      <head>
+        <link
+          rel="preload"
+          as="image"
+          href="/home/slide-1mobile.png"
+          media="(max-width: 767px)"
+        />
+        <link
+          rel="preload"
+          as="image"
+          href="/home/slide-1.png"
+          media="(min-width: 768px)"
+        />
+        <link rel="preload" as="image" href="/home/logo-emission-1.png" />
+      </head>
       <body className="bg-[#050816] text-white">
         <SiteHeader />
         {children}

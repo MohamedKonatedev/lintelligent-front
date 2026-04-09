@@ -153,7 +153,8 @@ export default function HomeHeroSlider() {
                     src={slide.imageDesktop}
                     alt={slide.title}
                     loading={index === current ? "eager" : "lazy"}
-                    decoding="async"
+                    decoding={index === current ? "sync" : "async"}
+                    fetchPriority={index === current ? "high" : "low"}
                   />
                 </picture>
 
@@ -167,7 +168,8 @@ export default function HomeHeroSlider() {
                       src={slide.logo}
                       alt={slide.title}
                       loading={index === current ? "eager" : "lazy"}
-                      decoding="async"
+                      decoding={index === current ? "sync" : "async"}
+                      fetchPriority={index === current ? "high" : "low"}
                     />
 
                     <div className="itv-schedule">
