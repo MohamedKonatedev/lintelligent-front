@@ -150,7 +150,7 @@ export default function ProgramSuggestionsCarousel({
   }, [programs, activeIndex]);
 
   return (
-    <section className="mt-10 sm:mt-14">
+    <section className="mt-10 overflow-x-hidden sm:mt-14">
       <div className="mb-6 flex items-center gap-4">
         <h2 className="text-2xl font-bold uppercase sm:text-3xl">
           Voir les autres programmes
@@ -161,12 +161,12 @@ export default function ProgramSuggestionsCarousel({
         />
       </div>
 
-      <div className="relative mx-auto mt-8 max-w-7xl">
+      <div className="relative mx-auto mt-8 max-w-7xl overflow-hidden px-10 sm:px-12">
         <button
           type="button"
           aria-label="Programme précédent"
           onClick={previous}
-          className="absolute left-0 top-1/2 z-40 flex h-10 w-10 -translate-y-1/2 items-center justify-center rounded-full border border-white/15 bg-[#0d1427]/85 text-2xl text-white backdrop-blur-md transition hover:bg-[#131d35] sm:h-11 sm:w-11"
+          className="absolute left-1 top-1/2 z-40 flex h-10 w-10 -translate-y-1/2 items-center justify-center rounded-full border border-white/15 bg-[#0d1427]/85 text-2xl text-white backdrop-blur-md transition hover:bg-[#131d35] sm:left-2 sm:h-11 sm:w-11"
         >
           ‹
         </button>
@@ -175,12 +175,12 @@ export default function ProgramSuggestionsCarousel({
           type="button"
           aria-label="Programme suivant"
           onClick={next}
-          className="absolute right-0 top-1/2 z-40 flex h-10 w-10 -translate-y-1/2 items-center justify-center rounded-full border border-white/15 bg-[#0d1427]/85 text-2xl text-white backdrop-blur-md transition hover:bg-[#131d35] sm:h-11 sm:w-11"
+          className="absolute right-1 top-1/2 z-40 flex h-10 w-10 -translate-y-1/2 items-center justify-center rounded-full border border-white/15 bg-[#0d1427]/85 text-2xl text-white backdrop-blur-md transition hover:bg-[#131d35] sm:right-2 sm:h-11 sm:w-11"
         >
           ›
         </button>
 
-        <div className="relative h-[420px] sm:h-[520px] md:h-[600px] lg:h-[680px]">
+        <div className="relative h-[420px] overflow-hidden sm:h-[520px] md:h-[600px] lg:h-[680px]">
           {cards.map((item) => (
             <CarouselCard
               key={item.slug}

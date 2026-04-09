@@ -82,7 +82,7 @@ export default async function ProgramPage({ params }: PageProps) {
     }));
 
   return (
-    <main className="min-h-screen bg-[#070b1a] text-white">
+    <main className="min-h-screen overflow-x-hidden bg-[#070b1a] text-white">
       <TrackRecentProgram
         id={slug}
         title={program.title}
