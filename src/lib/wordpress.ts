@@ -16,6 +16,7 @@ async function wpFetchJson<T>(url: string, init?: RequestInit): Promise<T | null
 export type WpPost = {
   id: number;
   date: string;
+  modified?: string;
   slug: string;
   link: string;
   title?: { rendered?: string };
@@ -70,6 +71,55 @@ export async function getAllVideos(perPage = 24): Promise<WpPost[]> {
   );
 
   return data ?? [];
+}
+
+const SITEMAP_VIDEO_PER_PAGE = 100;
+
+/** En-têtes X-WP-Total / X-WP-TotalPages du endpoint `videos` (léger : per_page=1). */
+export async function getVideosSitemapMeta(): Promise<{ total: number; totalPages: number } | null> {
+  try {
+    const res = await fetch(`${WP_API}/videos?per_page=1&page=1`, {
+      next: { revalidate: 3600 },
+    });
+    if (!res.ok) return null;
+    const total = Number.parseInt(res.headers.get("X-WP-Total") ?? "0", 10);
+    const totalPages = Number.parseInt(res.headers.get("X-WP-TotalPages") ?? "0", 10);
+    return { total, totalPages };
+  } catch {
+    return null;
+  }
+}
+
+/** Une page de vidéos, champs minimaux pour le sitemap (sans _embed). */
+export async function getVideosPageForSitemap(page: number): Promise<WpPost[]> {
+  const fields = "slug,date,modified";
+  const data = await wpFetchJson<WpPost[]>(
+    `${WP_API}/videos?per_page=${SITEMAP_VIDEO_PER_PAGE}&page=${page}&_fields=${fields}`,
+    { next: { revalidate: 3600 } }
+  );
+  return data ?? [];
+}
+
+/** Récupère `limit` vidéos à partir de l’offset global (pour découper le sitemap). */
+export async function getVideosSliceForSitemap(offset: number, limit: number): Promise<WpPost[]> {
+  const out: WpPost[] = [];
+  let page = Math.floor(offset / SITEMAP_VIDEO_PER_PAGE) + 1;
+  let skip = offset % SITEMAP_VIDEO_PER_PAGE;
+
+  while (out.length < limit) {
+    const batch = await getVideosPageForSitemap(page);
+    if (batch.length === 0) break;
+    const slice = skip > 0 ? batch.slice(skip) : batch;
+    skip = 0;
+    for (const post of slice) {
+      out.push(post);
+      if (out.length >= limit) break;
+    }
+    if (batch.length < SITEMAP_VIDEO_PER_PAGE) break;
+    page += 1;
+  }
+
+  return out;
 }
 
 export function getFeaturedImage(post: WpPost): string | null {
