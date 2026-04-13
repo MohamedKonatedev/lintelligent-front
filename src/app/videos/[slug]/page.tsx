@@ -192,11 +192,11 @@ export default async function VideoPage({ params }: PageProps) {
         <div className="relative mx-auto max-w-7xl px-4 pb-10 pt-28 sm:px-6 lg:px-8 lg:pb-14 lg:pt-32">
           <div className="mx-auto max-w-[1280px]">
 
-            <div className="flex min-w-0 flex-col gap-6 lg:flex-row lg:items-start lg:gap-10">
+            <div className="flex min-w-0 flex-col items-stretch gap-6 lg:flex-row lg:items-center lg:gap-10">
 
-              <div className="w-full min-w-0 lg:w-[58%] xl:w-[60%]">
+              <div className="flex w-full min-w-0 justify-center lg:w-[58%] lg:justify-center xl:w-[60%]">
 
-                <div className="lg:max-w-[760px] xl:max-w-[820px]">
+                <div className="w-full max-w-[760px] xl:max-w-[820px]">
 
                   <div className="overflow-hidden rounded-[22px] border border-white/10 bg-black shadow-[0_20px_60px_rgba(0,0,0,0.35)]">
 
@@ -236,18 +236,13 @@ export default async function VideoPage({ params }: PageProps) {
 
               <aside className="w-full min-w-0 lg:w-[42%] xl:w-[40%]">
 
-                <div className="video-aside-text mt-2 min-w-0 rounded-[22px] border border-white/10 bg-white/[0.04] p-4 backdrop-blur-sm sm:mt-3 sm:p-5 lg:mt-0 lg:p-6">
+                <div className="video-aside-text mt-2 w-full min-w-0 rounded-[22px] border border-white/10 bg-white/[0.04] p-4 backdrop-blur-sm sm:mt-3 sm:p-5 lg:mt-0 lg:p-6">
 
                   <h1
-
-                    className="text-balance text-[clamp(0.8125rem,2.4vw+0.45rem,1.1875rem)] font-extrabold leading-[1.18] text-white sm:leading-[1.15] lg:leading-tight xl:text-[clamp(0.875rem,1.5vw+0.5rem,1.25rem)]"
-
+                    className="block w-full max-w-full break-words text-left text-[clamp(0.8125rem,2.4vw+0.45rem,1.1875rem)] font-extrabold leading-[1.18] text-white sm:leading-[1.15] lg:leading-tight xl:text-[clamp(0.875rem,1.5vw+0.5rem,1.25rem)] [&_*]:max-w-none"
                     dangerouslySetInnerHTML={{
-
                       __html: video.title?.rendered || "",
-
                     }}
-
                   />
 
                   {hasExcerptUnderTitle && (
@@ -339,24 +334,6 @@ export default async function VideoPage({ params }: PageProps) {
                       text="Regarde cette vidéo sur L'Intelligent TV"
 
                     />
-
-                  </div>
-
-
-
-                  <div className="mt-6">
-
-                    <Link
-
-                      href="/replays"
-
-                      className="text-sm text-white/50 transition hover:text-white"
-
-                    >
-
-                      ← Retour aux replays
-
-                    </Link>
 
                   </div>
 
