@@ -73,6 +73,17 @@ export async function getAllVideos(perPage = 24): Promise<WpPost[]> {
   return data ?? [];
 }
 
+/** Une vidéo par slug (contenu / ACF complets pour la page détail). */
+export async function getVideoBySlug(slug: string): Promise<WpPost | null> {
+  const data = await wpFetchJson<WpPost[]>(
+    `${WP_API}/videos?slug=${encodeURIComponent(slug)}&per_page=1&_embed`,
+    {
+      next: { revalidate: 120 },
+    }
+  );
+  return data?.[0] ?? null;
+}
+
 const SITEMAP_VIDEO_PER_PAGE = 100;
 
 /** En-têtes X-WP-Total / X-WP-TotalPages du endpoint `videos` (léger : per_page=1). */

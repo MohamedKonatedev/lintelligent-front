@@ -5,6 +5,7 @@ import ShareButton from "@/app/components/ShareButton";
 import {
   getAllVideos,
   getReplayCardImage,
+  getVideoBySlug,
   stripHtml,
 } from "@/lib/wordpress";
 import { extractYoutubeVideoId } from "@/lib/youtube-thumbnail";
@@ -23,6 +24,91 @@ function formatDate(date: string) {
   }).format(new Date(date));
 }
 
+const frLongDate: Intl.DateTimeFormatOptions = {
+  day: "2-digit",
+  month: "long",
+  year: "numeric",
+};
+
+/** ACF « date diffusion » : souvent YYYYMMDD en API alors que l’admin affiche jj/mm/aaaa. */
+function formatDiffusionDate(raw: unknown): string {
+  if (raw == null) return "";
+  const s = String(raw).trim();
+  if (!s) return "";
+
+  if (/^\d{8}$/.test(s)) {
+    const y = s.slice(0, 4);
+    const m = s.slice(4, 6);
+    const d = s.slice(6, 8);
+    const dt = new Date(`${y}-${m}-${d}T12:00:00`);
+    if (!Number.isNaN(dt.getTime())) {
+      return new Intl.DateTimeFormat("fr-FR", frLongDate).format(dt);
+    }
+  }
+
+  const dmY = /^(\d{1,2})\/(\d{1,2})\/(\d{4})$/.exec(s);
+  if (dmY) {
+    const dd = Number(dmY[1]);
+    const mm = Number(dmY[2]);
+    const yyyy = Number(dmY[3]);
+    const dt = new Date(yyyy, mm - 1, dd, 12, 0, 0);
+    if (!Number.isNaN(dt.getTime())) {
+      return new Intl.DateTimeFormat("fr-FR", frLongDate).format(dt);
+    }
+  }
+
+  const parsed = new Date(s);
+  if (!Number.isNaN(parsed.getTime())) {
+    return new Intl.DateTimeFormat("fr-FR", frLongDate).format(parsed);
+  }
+
+  return s;
+}
+
+function hasRenderableContent(html: string | undefined): boolean {
+  if (!html) return false;
+  return stripHtml(html).trim().length > 0;
+}
+
+/** Champs ACF possibles pour un chapeau (à créer dans le CMS si besoin). */
+function pickAcfShortDescription(acf: Record<string, unknown>): string | null {
+  const keys = [
+    "description_courte",
+    "resume",
+    "chapo",
+    "sous_titre",
+    "description_video",
+  ];
+  for (const key of keys) {
+    const v = acf[key];
+    if (v == null) continue;
+    const s = typeof v === "string" ? v.trim() : String(v).trim();
+    if (s) return s;
+  }
+  return null;
+}
+
+function looksLikeHtml(s: string): boolean {
+  return /<[a-z][\s\S]*>/i.test(s);
+}
+
+function acfText(v: unknown): string {
+  if (v == null || v === false) return "";
+  return typeof v === "string" ? v.trim() : String(v).trim();
+}
+
+/** Évite de dupliquer l’auto-résumé WordPress (souvent = début du contenu). */
+function excerptIsDistinctFromContent(
+  excerptHtml: string | undefined,
+  contentHtml: string | undefined
+): boolean {
+  const e = stripHtml(excerptHtml || "").replace(/\s+/g, " ").trim().toLowerCase();
+  const c = stripHtml(contentHtml || "").replace(/\s+/g, " ").trim().toLowerCase();
+  if (!e || !c) return !!e;
+  const prefix = e.slice(0, Math.min(80, e.length));
+  return !c.startsWith(prefix);
+}
+
 function getYoutubeEmbed(url: string) {
   const id = extractYoutubeVideoId(url);
   return id ? `https://www.youtube.com/embed/${id}` : null;
@@ -30,8 +116,7 @@ function getYoutubeEmbed(url: string) {
 
 export async function generateMetadata({ params }: PageProps) {
   const { slug } = await params;
-  const videos = await getAllVideos(100);
-  const video = videos.find((v: any) => v.slug === slug);
+  const video = await getVideoBySlug(slug);
 
   if (!video) {
     return {
@@ -39,29 +124,54 @@ export async function generateMetadata({ params }: PageProps) {
     };
   }
 
+  const acf = (video as { acf?: Record<string, unknown> }).acf ?? {};
+  const acfShort = pickAcfShortDescription(acf);
+  const metaDesc =
+    stripHtml(acfShort || "") ||
+    stripHtml(video.excerpt?.rendered || "") ||
+    stripHtml(video.content?.rendered || "").slice(0, 160);
+
   return {
     title: `${stripHtml(video.title?.rendered || "Vidéo")} | L'Intelligent TV`,
-    description: stripHtml(video.excerpt?.rendered || ""),
+    description: metaDesc,
   };
 }
 
 export default async function VideoPage({ params }: PageProps) {
   const { slug } = await params;
 
-  const videos = await getAllVideos(100);
-  const video = videos.find((v: any) => v.slug === slug);
+  const [video, videos] = await Promise.all([
+    getVideoBySlug(slug),
+    getAllVideos(100),
+  ]);
 
   if (!video) {
     notFound();
   }
 
-  const acf = (video as any).acf ?? {};
+  const acf = (video as { acf?: Record<string, unknown> }).acf ?? {};
+  const acfShortDescription = pickAcfShortDescription(acf);
+  const excerptHtml = video.excerpt?.rendered;
+  const contentHtml = video.content?.rendered;
+  const showWpExcerptAsChapo =
+    !acfShortDescription &&
+    hasRenderableContent(excerptHtml) &&
+    (!hasRenderableContent(contentHtml) ||
+      excerptIsDistinctFromContent(excerptHtml, contentHtml));
+
+  const excerptFallbackPlain =
+    !hasRenderableContent(contentHtml) &&
+    !showWpExcerptAsChapo &&
+    hasRenderableContent(excerptHtml);
+
+  const hasExcerptUnderTitle =
+    !!acfShortDescription || (showWpExcerptAsChapo && !!excerptHtml) || excerptFallbackPlain;
 
   const videoUrl =
-    acf.lien_video ||
-    acf.video_url ||
-    acf.youtube_url ||
-    acf.url_video ||
+    acfText(acf.lien_video) ||
+    acfText(acf.video_url) ||
+    acfText(acf.youtube_url) ||
+    acfText(acf.url_video) ||
     "";
 
   const embedUrl = getYoutubeEmbed(videoUrl);
@@ -82,9 +192,9 @@ export default async function VideoPage({ params }: PageProps) {
         <div className="relative mx-auto max-w-7xl px-4 pb-10 pt-28 sm:px-6 lg:px-8 lg:pb-14 lg:pt-32">
           <div className="mx-auto max-w-[1280px]">
 
-            <div className="flex flex-col gap-6 lg:flex-row lg:items-start lg:gap-10">
+            <div className="flex min-w-0 flex-col gap-6 lg:flex-row lg:items-start lg:gap-10">
 
-              <div className="w-full lg:w-[58%] xl:w-[60%]">
+              <div className="w-full min-w-0 lg:w-[58%] xl:w-[60%]">
 
                 <div className="lg:max-w-[760px] xl:max-w-[820px]">
 
@@ -124,13 +234,13 @@ export default async function VideoPage({ params }: PageProps) {
 
               </div>
 
-              <aside className="w-full lg:w-[42%] xl:w-[40%]">
+              <aside className="w-full min-w-0 lg:w-[42%] xl:w-[40%]">
 
-                <div className="mt-2 rounded-[22px] border border-white/10 bg-white/[0.04] p-5 backdrop-blur-sm sm:mt-3 sm:p-6 lg:mt-0">
+                <div className="video-aside-text mt-2 min-w-0 rounded-[22px] border border-white/10 bg-white/[0.04] p-4 backdrop-blur-sm sm:mt-3 sm:p-5 lg:mt-0 lg:p-6">
 
                   <h1
 
-                    className="text-2xl font-extrabold leading-tight sm:text-3xl"
+                    className="text-balance text-[clamp(0.8125rem,2.4vw+0.45rem,1.1875rem)] font-extrabold leading-[1.18] text-white sm:leading-[1.15] lg:leading-tight xl:text-[clamp(0.875rem,1.5vw+0.5rem,1.25rem)]"
 
                     dangerouslySetInnerHTML={{
 
@@ -140,69 +250,83 @@ export default async function VideoPage({ params }: PageProps) {
 
                   />
 
+                  {hasExcerptUnderTitle && (
+                    <div className="mt-3 space-y-2.5 sm:mt-3.5 sm:space-y-3">
+                      {acfShortDescription && (
+                        <div className="excerpt-chapo max-w-full border-l-2 border-red-500/70 pl-2.5 text-[0.6875rem] leading-snug text-white/78 sm:pl-3 sm:text-[0.75rem] md:text-xs [&_a]:break-words [&_a]:text-red-400 [&_a]:underline">
+                          {looksLikeHtml(acfShortDescription) ? (
+                            <div
+                              className="break-words [&_p]:my-0 [&_p]:mb-1 [&_p]:break-words [&_p]:leading-snug [&_p:last-child]:mb-0 [&_p]:text-inherit [&_p]:text-white/78"
+                              dangerouslySetInnerHTML={{
+                                __html: acfShortDescription,
+                              }}
+                            />
+                          ) : (
+                            <p className="m-0 break-words leading-snug">{acfShortDescription}</p>
+                          )}
+                        </div>
+                      )}
 
+                      {showWpExcerptAsChapo && excerptHtml && (
+                        <div className="excerpt-chapo max-w-full border-l-2 border-red-500/70 pl-2.5 text-[0.6875rem] leading-snug text-white/78 sm:pl-3 sm:text-[0.75rem] md:text-xs [&_a]:break-words [&_a]:text-red-400 [&_a]:underline">
+                          {looksLikeHtml(excerptHtml) ? (
+                            <div
+                              className="break-words [&_p]:my-0 [&_p]:mb-1 [&_p]:break-words [&_p]:leading-snug [&_p:last-child]:mb-0 [&_p]:text-inherit [&_p]:text-white/78"
+                              dangerouslySetInnerHTML={{ __html: excerptHtml }}
+                            />
+                          ) : (
+                            <p className="m-0 break-words leading-snug">{stripHtml(excerptHtml)}</p>
+                          )}
+                        </div>
+                      )}
 
-                  <div className="mt-6 space-y-3 text-sm text-white/72 sm:text-base">
+                      {excerptFallbackPlain && (
+                        <p className="m-0 max-w-full border-l-2 border-red-500/70 pl-2.5 break-words text-[0.6875rem] leading-snug text-white/72 sm:pl-3 sm:text-[0.75rem] md:text-xs">
+                          {stripHtml(excerptHtml || "")}
+                        </p>
+                      )}
+                    </div>
+                  )}
 
+                  <div
+                    className={
+                      hasExcerptUnderTitle
+                        ? "mt-4 space-y-1.5 border-t border-white/10 pt-4 text-xs leading-snug text-white/75 sm:mt-5 sm:space-y-2 sm:text-[0.8125rem] md:text-sm"
+                        : "mt-4 space-y-1.5 text-xs leading-snug text-white/75 sm:mt-5 sm:space-y-2 sm:text-[0.8125rem] md:text-sm"
+                    }
+                  >
                     <p>
-
-                      <span className="font-semibold text-white">Date :</span>{" "}
-
-                      {formatDate(video.date)}
-
+                      <span className="font-semibold text-white">
+                        {acfText(acf.date_diffusion) ? "Diffusion :" : "Publiée le :"}
+                      </span>{" "}
+                      {acfText(acf.date_diffusion)
+                        ? formatDiffusionDate(acf.date_diffusion)
+                        : formatDate(video.date)}
                     </p>
 
-
-
-                    {acf.presentateur && (
-
+                    {acfText(acf.presentateur) && (
                       <p>
-
                         <span className="font-semibold text-white">Présentateur :</span>{" "}
-
-                        {acf.presentateur}
-
+                        {acfText(acf.presentateur)}
                       </p>
-
                     )}
 
-
-
-                    {acf.duree && (
-
+                    {acfText(acf.duree) && (
                       <p>
-
                         <span className="font-semibold text-white">Durée :</span>{" "}
-
-                        {acf.duree}
-
+                        {acfText(acf.duree)}
                       </p>
-
                     )}
-
-
-
-                    {acf.date_diffusion && (
-
-                      <p>
-
-                        <span className="font-semibold text-white">Diffusion :</span>{" "}
-
-                        {acf.date_diffusion}
-
-                      </p>
-
-                    )}
-
                   </div>
 
-
-
-                  <p className="mt-6 text-sm leading-7 text-white/68 sm:text-base">
-
-                    {stripHtml(video.excerpt?.rendered || "")}
-
-                  </p>
+                  {hasRenderableContent(contentHtml) && (
+                    <div
+                      className="video-description mt-4 max-w-full break-words border-t border-white/10 pt-4 text-[0.75rem] leading-snug text-white/80 sm:mt-5 sm:text-[0.8125rem] md:text-sm md:leading-relaxed [&_a]:break-words [&_a]:text-red-400 [&_a]:underline [&_img]:h-auto [&_img]:max-w-full [&_p]:mb-2 [&_p:last-child]:mb-0 [&_p]:leading-snug [&_p]:text-inherit [&_ul]:my-1 [&_ul]:list-inside [&_ul]:pl-1"
+                      dangerouslySetInnerHTML={{
+                        __html: contentHtml ?? "",
+                      }}
+                    />
+                  )}
 
 
 
