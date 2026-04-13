@@ -8,6 +8,7 @@ import {
   getVideoBySlug,
   stripHtml,
 } from "@/lib/wordpress";
+import { buildVideoObjectJsonLd } from "@/lib/video-schema";
 import { extractYoutubeVideoId } from "@/lib/youtube-thumbnail";
 
 type PageProps = {
@@ -114,6 +115,16 @@ function getYoutubeEmbed(url: string) {
   return id ? `https://www.youtube.com/embed/${id}` : null;
 }
 
+function acfVideoUrlForMeta(acf: Record<string, unknown>): string {
+  return (
+    acfText(acf.lien_video) ||
+    acfText(acf.video_url) ||
+    acfText(acf.youtube_url) ||
+    acfText(acf.url_video) ||
+    ""
+  );
+}
+
 export async function generateMetadata({ params }: PageProps) {
   const { slug } = await params;
   const video = await getVideoBySlug(slug);
@@ -131,9 +142,31 @@ export async function generateMetadata({ params }: PageProps) {
     stripHtml(video.excerpt?.rendered || "") ||
     stripHtml(video.content?.rendered || "").slice(0, 160);
 
+  const titlePlain = stripHtml(video.title?.rendered || "Vidéo");
+  const ytId = extractYoutubeVideoId(acfVideoUrlForMeta(acf));
+  const ogImage = ytId ? `https://img.youtube.com/vi/${ytId}/maxresdefault.jpg` : undefined;
+
   return {
-    title: `${stripHtml(video.title?.rendered || "Vidéo")} | L'Intelligent TV`,
+    title: `${titlePlain} | L'Intelligent TV`,
     description: metaDesc,
+    alternates: {
+      canonical: `/videos/${slug}`,
+    },
+    openGraph: {
+      title: `${titlePlain} | L'Intelligent TV`,
+      description: metaDesc,
+      url: `/videos/${slug}`,
+      type: "video.other",
+      ...(ogImage && {
+        images: [{ url: ogImage, width: 1280, height: 720, alt: titlePlain }],
+      }),
+    },
+    twitter: {
+      card: "summary_large_image",
+      title: `${titlePlain} | L'Intelligent TV`,
+      description: metaDesc,
+      ...(ogImage && { images: [ogImage] }),
+    },
   };
 }
 
@@ -180,8 +213,22 @@ export default async function VideoPage({ params }: PageProps) {
     .filter((v: any) => v.id !== video.id)
     .slice(0, 8);
 
+  const videoObjectJsonLd = buildVideoObjectJsonLd({
+    video,
+    slug,
+    videoSourceUrl: videoUrl,
+    acfShortPlain: acfShortDescription,
+  });
+
   return (
-    <main className="min-h-screen bg-[#070b1a] text-white">
+    <>
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{
+          __html: JSON.stringify(videoObjectJsonLd),
+        }}
+      />
+      <main className="min-h-screen bg-[#070b1a] text-white">
       <SiteHeader />
 
       <section className="relative overflow-hidden">
@@ -383,5 +430,6 @@ export default async function VideoPage({ params }: PageProps) {
         </div>
       </section>
     </main>
+    </>
   );
 }
