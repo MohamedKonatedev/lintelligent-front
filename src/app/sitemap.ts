@@ -1,13 +1,17 @@
+/**
+ * Sous-sitemaps `/sitemap/{id}.xml` via `generateSitemaps`.
+ * L’index `/sitemap.xml` est servi par rewrite → `GET /api/sitemap-index` (voir next.config.ts),
+ * car Next ne déclare pas d’URL racine pour l’index dans ce mode.
+ */
 import type { MetadataRoute } from "next";
 import { PROGRAMS } from "./programmes/programs";
-import { getVideosSliceForSitemap, getVideosSitemapMeta } from "@/lib/wordpress";
-
-const baseUrl = "https://lintelligent.tv";
-
-/** Limite Google : 50 000 URLs par fichier ; on reste largement en dessous pour limiter le temps de génération. */
-const VIDEOS_PER_SITEMAP_FILE = 10_000;
-
-const CORE_SITEMAP_ID = 0;
+import {
+  CORE_SITEMAP_ID,
+  SITE_BASE_URL,
+  VIDEOS_PER_SITEMAP_FILE,
+  getSitemapShardIds,
+} from "@/lib/sitemap-shards";
+import { getVideosSliceForSitemap } from "@/lib/wordpress";
 
 function lastModFromPost(post: { modified?: string; date?: string }): Date {
   const raw = post.modified || post.date;
@@ -33,19 +37,19 @@ function coreSitemapEntries(): MetadataRoute.Sitemap {
   ];
 
   const staticEntries: MetadataRoute.Sitemap = staticPaths.map((path) => ({
-    url: `${baseUrl}${path}`,
+    url: `${SITE_BASE_URL}${path}`,
     lastModified: new Date(),
   }));
 
   const programSlugs = PROGRAMS.map((p) => p.slug);
 
   const programmePages: MetadataRoute.Sitemap = programSlugs.map((slug) => ({
-    url: `${baseUrl}/programmes/${slug}`,
+    url: `${SITE_BASE_URL}/programmes/${slug}`,
     lastModified: new Date(),
   }));
 
   const replayProgramPages: MetadataRoute.Sitemap = programSlugs.map((slug) => ({
-    url: `${baseUrl}/replays/${slug}`,
+    url: `${SITE_BASE_URL}/replays/${slug}`,
     lastModified: new Date(),
   }));
 
@@ -53,16 +57,8 @@ function coreSitemapEntries(): MetadataRoute.Sitemap {
 }
 
 export async function generateSitemaps() {
-  const meta = await getVideosSitemapMeta();
-  const total = meta?.total ?? 0;
-  const videoSitemapCount =
-    total === 0 ? 0 : Math.ceil(total / VIDEOS_PER_SITEMAP_FILE);
-
-  const ids: { id: number }[] = [{ id: CORE_SITEMAP_ID }];
-  for (let i = 0; i < videoSitemapCount; i += 1) {
-    ids.push({ id: i + 1 });
-  }
-  return ids;
+  const ids = await getSitemapShardIds();
+  return ids.map((id) => ({ id }));
 }
 
 export default async function sitemap(props: {
@@ -79,7 +75,7 @@ export default async function sitemap(props: {
   const videos = await getVideosSliceForSitemap(offset, VIDEOS_PER_SITEMAP_FILE);
 
   return videos.map((video) => ({
-    url: `${baseUrl}/videos/${video.slug}`,
+    url: `${SITE_BASE_URL}/videos/${video.slug}`,
     lastModified: lastModFromPost(video),
   }));
 }
