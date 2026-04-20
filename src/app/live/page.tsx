@@ -1,5 +1,6 @@
 import LivePlayer from "../components/LivePlayer";
 import ShareButton from "./ShareButton";
+import { resolveLiveSource } from "@/lib/live-stream";
 
 type LivePost = {
   id: number;
@@ -93,9 +94,10 @@ export default async function LivePage() {
   const live = await getLive();
   const statut = live?.acf?.satut_live;
 
-  const liveSrc =
-    live?.acf?.lien_live?.trim() ||
-    "https://player.infomaniak.com/?channel=XW99617043325684590&player=12754";
+  const liveSrc = resolveLiveSource({
+    acfPlayer: live?.acf?.player,
+    acfLiveLink: live?.acf?.lien_live,
+  });
 
   return (
     <main className="relative min-h-screen overflow-hidden text-white">
