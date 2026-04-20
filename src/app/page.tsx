@@ -1,7 +1,7 @@
 import HomeHeroSlider from "./components/HomeHeroSlider";
 import LivePlayer from "./components/LivePlayer";
 import { PROGRAMS } from "./programmes/programs";
-import { ENV_LIVE_HLS_URL, FALLBACK_PLAYER_URL } from "@/lib/live-stream";
+import { ENV_LIVE_HLS_URL, FALLBACK_HLS_URL, FALLBACK_PLAYER_URL } from "@/lib/live-stream";
 
 const emissions = PROGRAMS.map((p) => ({
   title: p.title,
@@ -11,7 +11,7 @@ const emissions = PROGRAMS.map((p) => ({
 }));
 
 export default function HomePage() {
-  const liveSrc = ENV_LIVE_HLS_URL || FALLBACK_PLAYER_URL;
+  const liveSrc = ENV_LIVE_HLS_URL || FALLBACK_HLS_URL || FALLBACK_PLAYER_URL;
 
   return (
     <main className="min-h-screen bg-[#101722] text-[#f3f6fb]">
