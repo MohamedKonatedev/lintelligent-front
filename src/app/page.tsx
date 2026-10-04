@@ -15,9 +15,7 @@ export default function HomePage() {
 
   return (
     <main className="min-h-screen bg-[#101722] text-[#f3f6fb]">
-      <HomeHeroSlider />
-
-      <section className="mx-auto max-w-7xl px-4 py-14 sm:px-6">
+      <section className="mx-auto max-w-7xl px-4 pb-10 pt-24 sm:px-6 sm:pb-12 sm:pt-28">
         <div className="mb-6">
           <h2 className="text-3xl font-extrabold tracking-tight text-white sm:text-4xl">
             En direct
@@ -27,7 +25,9 @@ export default function HomePage() {
         <LivePlayer src={liveSrc} />
       </section>
 
-      <section className="mx-auto max-w-7xl px-4 pb-16 sm:px-6">
+      <HomeHeroSlider />
+
+      <section className="mx-auto max-w-7xl px-4 py-14 pb-16 sm:px-6">
         <div className="mb-8">
           <h2 className="text-3xl font-extrabold tracking-tight text-white sm:text-4xl">
             Nos émissions
