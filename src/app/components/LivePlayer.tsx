@@ -1,12 +1,21 @@
 "use client";
 
 import { useEffect, useMemo, useRef } from "react";
+import { sendGAEvent } from "@next/third-parties/google";
 import { isLikelyStreamUrl } from "@/lib/live-stream";
 
 type Props = {
   src: string;
   title?: string;
 };
+
+function streamHost(src: string): string {
+  try {
+    return new URL(src).hostname || "unknown";
+  } catch {
+    return "unknown";
+  }
+}
 
 export default function LivePlayer({
   src,
@@ -98,6 +107,126 @@ export default function LivePlayer({
       }
       hlsInstance?.destroy();
       if (video) video.removeAttribute("src");
+    };
+  }, [src, useDirectStream]);
+
+  /** Tracking GA4 (lecture réelle HLS uniquement — n’altère pas le pipeline de lecture). */
+  useEffect(() => {
+    if (!useDirectStream) return;
+
+    const video = videoRef.current;
+    if (!video) return;
+
+    let activelyPlaying = false;
+    let heartbeatId: ReturnType<typeof setInterval> | null = null;
+    let lastBufferingAt = 0;
+
+    const baseParams = () => ({
+      player_type: "hls" as const,
+      page_location:
+        typeof window !== "undefined" ? window.location.pathname : "",
+      stream_source: streamHost(src),
+    });
+
+    const track = (eventName: string, extra?: Record<string, string | number>) => {
+      try {
+        sendGAEvent("event", eventName, {
+          ...baseParams(),
+          ...extra,
+        });
+      } catch {
+        // Le Direct ne doit jamais dépendre de GA.
+      }
+    };
+
+    const stopHeartbeat = () => {
+      if (heartbeatId == null) return;
+      clearInterval(heartbeatId);
+      heartbeatId = null;
+    };
+
+    const startHeartbeat = () => {
+      if (heartbeatId != null) return;
+      heartbeatId = setInterval(() => {
+        if (
+          !video ||
+          video.paused ||
+          video.ended ||
+          video.readyState < 2
+        ) {
+          activelyPlaying = false;
+          stopHeartbeat();
+          return;
+        }
+        track("live_heartbeat");
+      }, 30_000);
+    };
+
+    const onPlay = () => {
+      track("live_play");
+    };
+
+    const onPlaying = () => {
+      if (activelyPlaying) return;
+      activelyPlaying = true;
+      track("live_playing");
+      startHeartbeat();
+    };
+
+    const onPause = () => {
+      const wasPlaying = activelyPlaying;
+      activelyPlaying = false;
+      stopHeartbeat();
+      if (wasPlaying) track("live_pause");
+    };
+
+    const onWaiting = () => {
+      const now = Date.now();
+      if (now - lastBufferingAt < 5_000) return;
+      lastBufferingAt = now;
+      activelyPlaying = false;
+      stopHeartbeat();
+      track("live_buffering", { reason: "waiting" });
+    };
+
+    const onStalled = () => {
+      const now = Date.now();
+      if (now - lastBufferingAt < 5_000) return;
+      lastBufferingAt = now;
+      activelyPlaying = false;
+      stopHeartbeat();
+      track("live_buffering", { reason: "stalled" });
+    };
+
+    const onEnded = () => {
+      activelyPlaying = false;
+      stopHeartbeat();
+    };
+
+    const onError = () => {
+      activelyPlaying = false;
+      stopHeartbeat();
+      track("live_error");
+    };
+
+    video.addEventListener("play", onPlay);
+    video.addEventListener("playing", onPlaying);
+    video.addEventListener("pause", onPause);
+    video.addEventListener("waiting", onWaiting);
+    video.addEventListener("stalled", onStalled);
+    video.addEventListener("ended", onEnded);
+    video.addEventListener("error", onError);
+
+    return () => {
+      activelyPlaying = false;
+      stopHeartbeat();
+      video.removeEventListener("play", onPlay);
+      video.removeEventListener("playing", onPlaying);
+      video.removeEventListener("pause", onPause);
+      video.removeEventListener("waiting", onWaiting);
+      video.removeEventListener("stalled", onStalled);
+      video.removeEventListener("ended", onEnded);
+      video.removeEventListener("error", onError);
     };
   }, [src, useDirectStream]);
 
