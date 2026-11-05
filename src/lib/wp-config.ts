@@ -12,3 +12,8 @@ export function getWpOrigin(): string {
   const match = base.match(/^(https?:\/\/[^/]+)/);
   return match?.[1] ?? "http://cms.lintelligent.tv";
 }
+
+/** Origine CMS en HTTPS pour les URLs publiques (miniatures, médias). */
+export function getWpOriginHttps(): string {
+  return getWpOrigin().replace(/^http:\/\//, "https://");
+}

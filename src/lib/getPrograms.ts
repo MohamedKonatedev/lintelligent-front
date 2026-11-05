@@ -1,6 +1,5 @@
 import weeklySchedule from "@/data/weekly-schedule.json";
-
-const WP_BASE = "http://cms.lintelligent.tv";
+import { getWpOrigin, getWpOriginHttps } from "@/lib/wp-config";
 
 type WeeklyScheduleItem = {
   day: string;
@@ -65,7 +64,8 @@ export type ScheduleProgram = {
 };
 
 function normalizeUrl(url: string) {
-  return url.replace("https://cms.lintelligent.tv", "http://cms.lintelligent.tv");
+  const origin = getWpOrigin();
+  return url.replace(origin, getWpOriginHttps());
 }
 
 function cleanText(value?: string) {
@@ -188,13 +188,13 @@ export async function getPrograms(): Promise<ScheduleProgram[]> {
 
   try {
     [emissionsRes, mediaRes, exceptionsRes] = await Promise.all([
-      fetch(`${WP_BASE}/wp-json/wp/v2/emissions?per_page=100&_embed`, {
+      fetch(`${getWpOrigin()}/wp-json/wp/v2/emissions?per_page=100&_embed`, {
         next: { revalidate: 300 },
       }),
-      fetch(`${WP_BASE}/wp-json/wp/v2/media?per_page=100`, {
+      fetch(`${getWpOrigin()}/wp-json/wp/v2/media?per_page=100`, {
         next: { revalidate: 300 },
       }),
-      fetch(`${WP_BASE}/wp-json/wp/v2/exceptions-prog?per_page=100`, {
+      fetch(`${getWpOrigin()}/wp-json/wp/v2/exceptions-prog?per_page=100`, {
         next: { revalidate: 60 },
       }),
     ]);

@@ -90,7 +90,7 @@ export default function HomePage() {
                   <img
                     src={item.image}
                     alt={item.title}
-                    loading={index < 4 ? "eager" : "lazy"}
+                    loading="lazy"
                     decoding="async"
                     className="aspect-square w-full object-cover transition duration-500 group-hover:scale-105 group-hover:grayscale"
                   />

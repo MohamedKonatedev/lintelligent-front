@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-
-const WP_BASE = "http://cms.lintelligent.tv";
+import { getWpOrigin } from "@/lib/wp-config";
 
 type WpItem = {
   id: number;
@@ -51,13 +50,13 @@ export async function GET(request: NextRequest) {
   try {
     const [videosRes, emissionsRes] = await Promise.all([
       fetch(
-        `${WP_BASE}/wp-json/wp/v2/videos?search=${encodeURIComponent(
+        `${getWpOrigin()}/wp-json/wp/v2/videos?search=${encodeURIComponent(
           q
         )}&per_page=6&_embed`,
         { cache: "no-store" }
       ),
       fetch(
-        `${WP_BASE}/wp-json/wp/v2/emissions?search=${encodeURIComponent(
+        `${getWpOrigin()}/wp-json/wp/v2/emissions?search=${encodeURIComponent(
           q
         )}&per_page=6&_embed`,
         { cache: "no-store" }

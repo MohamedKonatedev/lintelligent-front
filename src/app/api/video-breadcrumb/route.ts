@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-
-const WP_BASE = "http://cms.lintelligent.tv";
+import { getWpOrigin } from "@/lib/wp-config";
 
 function decodeHtml(value: string) {
   return value
@@ -50,7 +49,7 @@ export async function GET(request: NextRequest) {
 
   try {
     const res = await fetch(
-      `${WP_BASE}/wp-json/wp/v2/videos?slug=${encodeURIComponent(slug)}&_embed`,
+      `${getWpOrigin()}/wp-json/wp/v2/videos?slug=${encodeURIComponent(slug)}&_embed`,
       { cache: "no-store" }
     );
 

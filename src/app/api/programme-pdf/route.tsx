@@ -8,7 +8,7 @@ import {
 import fs from "node:fs/promises";
 import path from "node:path";
 
-const WP_BASE = "http://cms.lintelligent.tv";
+import { getWpOrigin } from "@/lib/wp-config";
 
 type WeeklyScheduleItem = {
   day: string;
@@ -96,7 +96,7 @@ async function fileToDataUri(relativePath: string, mimeType: string) {
 
 export async function GET() {
   try {
-    const emissionsRes = await fetch(`${WP_BASE}/wp-json/wp/v2/emissions?per_page=100`, {
+    const emissionsRes = await fetch(`${getWpOrigin()}/wp-json/wp/v2/emissions?per_page=100`, {
       next: { revalidate: 300 },
     });
 

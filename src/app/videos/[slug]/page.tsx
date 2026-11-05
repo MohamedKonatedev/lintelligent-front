@@ -411,7 +411,7 @@ export default async function VideoPage({ params }: PageProps) {
                 <img
                   src={getReplayCardImage(item) || "/programs/les-entretiens-home-square.jpg"}
                   alt={stripHtml(item.title?.rendered || "")}
-                  loading={relatedIndex < 4 ? "eager" : "lazy"}
+                  loading="lazy"
                   decoding="async"
                   className="h-full w-full object-cover transition duration-500 group-hover:scale-[1.04]"
                 />
