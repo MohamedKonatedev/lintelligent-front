@@ -6,6 +6,7 @@ import { useEffect, useRef, useState } from "react";
 import { PROGRAMS } from "@/app/programmes/programs";
 import {
   HERO_DESKTOP_SIZES,
+  HERO_MOBILE_MEDIA,
   HERO_MOBILE_SIZES,
   IMAGE_QUALITY,
 } from "@/lib/image-defaults";
@@ -62,7 +63,7 @@ function HeroSlidePicture({
 
   return (
     <picture className="itv-poster__media">
-      <source media="(max-width: 767px)" srcSet={mobileSrcSet} sizes={HERO_MOBILE_SIZES} />
+      <source media={HERO_MOBILE_MEDIA} srcSet={mobileSrcSet} sizes={HERO_MOBILE_SIZES} />
       <img
         src={desktopSrc}
         srcSet={desktopSrcSet}
