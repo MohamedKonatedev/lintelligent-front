@@ -1,10 +1,14 @@
 "use client";
 
-import Image from "next/image";
+import { getImageProps } from "next/image";
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 import { PROGRAMS } from "@/app/programmes/programs";
-import { HERO_SLIDE_SIZES, IMAGE_QUALITY } from "@/lib/image-defaults";
+import {
+  HERO_DESKTOP_SIZES,
+  HERO_MOBILE_SIZES,
+  IMAGE_QUALITY,
+} from "@/lib/image-defaults";
 
 const slides = PROGRAMS.map((p) => ({
   title: p.title,
@@ -21,6 +25,58 @@ const slides = PROGRAMS.map((p) => ({
   logoT: p.logoT,
   logoM: p.logoM,
 }));
+
+function HeroSlidePicture({
+  imageMobile,
+  imageDesktop,
+  alt,
+  priority,
+}: {
+  imageMobile: string;
+  imageDesktop: string;
+  alt: string;
+  priority: boolean;
+}) {
+  const common = { alt, quality: IMAGE_QUALITY };
+  const { props: mobileProps } = getImageProps({
+    ...common,
+    src: imageMobile,
+    fill: true,
+    sizes: HERO_MOBILE_SIZES,
+  });
+  const { props: desktopProps } = getImageProps({
+    ...common,
+    src: imageDesktop,
+    fill: true,
+    sizes: HERO_DESKTOP_SIZES,
+  });
+
+  const { srcSet: mobileSrcSet } = mobileProps;
+  const {
+    src: desktopSrc,
+    srcSet: desktopSrcSet,
+    sizes: desktopSizes,
+    style,
+    decoding,
+  } = desktopProps;
+
+  return (
+    <picture className="itv-poster__media">
+      <source media="(max-width: 767px)" srcSet={mobileSrcSet} sizes={HERO_MOBILE_SIZES} />
+      <img
+        src={desktopSrc}
+        srcSet={desktopSrcSet}
+        sizes={desktopSizes}
+        alt={alt}
+        style={style}
+        decoding={decoding}
+        className="itv-hero-img"
+        loading={priority ? "eager" : "lazy"}
+        fetchPriority={priority ? "high" : "low"}
+      />
+    </picture>
+  );
+}
 
 export default function HomeHeroSlider() {
   const [current, setCurrent] = useState(0);
@@ -61,7 +117,7 @@ export default function HomeHeroSlider() {
               <article
                 key={slide.title}
                 className={`itv-slide ${isActive ? "is-active" : ""} ${
-                  animating && isActive ? "is-reveal" : ""
+                  animating && index === current ? "is-reveal" : ""
                 }`}
                 style={
                   {
@@ -73,32 +129,16 @@ export default function HomeHeroSlider() {
                 }
               >
                 <div className="itv-poster">
-                  <div className="itv-poster__media">
-                    {loadMedia ? (
-                      <>
-                        <Image
-                          src={slide.imageMobile}
-                          alt={slide.title}
-                          fill
-                          sizes={HERO_SLIDE_SIZES}
-                          quality={IMAGE_QUALITY}
-                          priority={isActive}
-                          className="itv-hero-img md:hidden"
-                        />
-                        <Image
-                          src={slide.imageDesktop}
-                          alt={slide.title}
-                          fill
-                          sizes={HERO_SLIDE_SIZES}
-                          quality={IMAGE_QUALITY}
-                          priority={isActive}
-                          className="itv-hero-img hidden md:block"
-                        />
-                      </>
-                    ) : (
-                      <div className="absolute inset-0 bg-[#101722]" aria-hidden />
-                    )}
-                  </div>
+                  {loadMedia ? (
+                    <HeroSlidePicture
+                      imageMobile={slide.imageMobile}
+                      imageDesktop={slide.imageDesktop}
+                      alt={slide.title}
+                      priority={isActive}
+                    />
+                  ) : (
+                    <div className="itv-poster__media bg-[#101722]" aria-hidden />
+                  )}
 
                   <div className="itv-poster__overlay" />
                   <div className="itv-strip-reveal" />

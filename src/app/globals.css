@@ -72,10 +72,9 @@ body {
   inset: 0;
 }
 
-/* 1) Bloc modifié selon instructions */
+/* 1) Bloc modifié selon instructions — pas de display forcé (art direction mobile/desktop). */
 .nci-style .itv-poster__media img,
 .nci-style .itv-poster__media .itv-hero-img {
-  display: block;
   width: 100%;
   height: 100%;
   object-fit: cover;

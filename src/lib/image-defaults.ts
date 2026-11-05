@@ -4,7 +4,10 @@ export const IMAGE_QUALITY = 78;
 export const PROGRAM_HOME_SQUARE_SIZES =
   "(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 420px";
 
-export const HERO_SLIDE_SIZES = "100vw";
+export const HERO_MOBILE_SIZES = "100vw";
+export const HERO_DESKTOP_SIZES = "100vw";
+/** @deprecated Utiliser HERO_MOBILE_SIZES / HERO_DESKTOP_SIZES */
+export const HERO_SLIDE_SIZES = HERO_MOBILE_SIZES;
 
 export const REPLAY_THUMB_SIZES =
   "(max-width: 640px) 45vw, (max-width: 1024px) 220px, 260px";
