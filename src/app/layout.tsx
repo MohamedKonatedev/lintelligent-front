@@ -45,6 +45,9 @@ export const metadata: Metadata = {
   },
 };
 
+const GA_ID = "G-VMFF3F5Z3F";
+const analyticsEnabled = process.env.NEXT_PUBLIC_DISABLE_GA !== "true";
+
 export default function RootLayout({
   children,
 }: Readonly<{
@@ -57,7 +60,7 @@ export default function RootLayout({
         {children}
         <SiteBottomTrail />
         <SiteFooter />
-        <GoogleAnalytics gaId="G-VMFF3F5Z3F" />
+        {analyticsEnabled ? <GoogleAnalytics gaId={GA_ID} /> : null}
       </body>
     </html>
   );

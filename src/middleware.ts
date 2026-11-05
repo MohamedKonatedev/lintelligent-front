@@ -3,7 +3,7 @@ import type { NextRequest } from "next/server";
 
 /**
  * Canonique : https://lintelligent.tv (308 permanent vers apex).
- * Complète la config domaine Vercel / Nginx côté infra.
+ * Complète la config Nginx côté infra (308 également sur le VPS).
  */
 export function middleware(request: NextRequest) {
   const host = (request.headers.get("host") ?? "").split(":")[0].toLowerCase();

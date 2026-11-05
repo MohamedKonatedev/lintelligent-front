@@ -7,6 +7,9 @@ import { buildLiveBroadcastJsonLd } from "@/lib/live-schema";
 import { DEFAULT_OG_IMAGE, SITE_NAME, SITE_ORIGIN } from "@/lib/site";
 import { getWpApiBase } from "@/lib/wp-config";
 
+/** Direct : jamais de page HTML mise en cache côté CDN / reverse proxy applicatif. */
+export const dynamic = "force-dynamic";
+
 type LivePost = {
   id: number;
   acf?: {
