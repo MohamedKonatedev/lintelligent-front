@@ -4,10 +4,11 @@ import { GoogleAnalytics } from "@next/third-parties/google";
 import SiteHeader from "./components/SiteHeader";
 import SiteFooter from "./components/SiteFooter";
 import SiteBottomTrail from "./components/SiteBottomTrail";
+import { DEFAULT_OG_IMAGE, SITE_NAME, SITE_ORIGIN } from "@/lib/site";
 
 export const metadata: Metadata = {
-  metadataBase: new URL("https://lintelligent.tv"),
-  title: "L'Intelligent TV",
+  metadataBase: new URL(SITE_ORIGIN),
+  title: SITE_NAME,
   description:
     "L'Intelligent TV est une chaîne d’information en continu disponible 24h/24. Suivez le direct, les replays et nos programmes.",
   icons: {
@@ -23,11 +24,11 @@ export const metadata: Metadata = {
     title: "L'Intelligent TV",
     description:
       "Suivez l'actualité en direct, les replays et nos programmes sur L'Intelligent TV.",
-    url: "https://lintelligent.tv",
-    siteName: "L'Intelligent TV",
+    url: SITE_ORIGIN,
+    siteName: SITE_NAME,
     images: [
       {
-        url: "/og-image.jpeg",
+        url: DEFAULT_OG_IMAGE,
         width: 1200,
         height: 630,
       },
@@ -40,7 +41,7 @@ export const metadata: Metadata = {
     title: "L'Intelligent TV",
     description:
       "Suivez l'actualité en direct, les replays et nos programmes sur L'Intelligent TV.",
-    images: ["/og-image.jpeg"],
+    images: [DEFAULT_OG_IMAGE],
   },
 };
 
@@ -51,21 +52,6 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="fr" data-scroll-behavior="smooth">
-      <head>
-        <link
-          rel="preload"
-          as="image"
-          href="/programs/les-entretiens-hero-mobile.jpg"
-          media="(max-width: 767px)"
-        />
-        <link
-          rel="preload"
-          as="image"
-          href="/programs/les-entretiens-hero-desktop.jpg"
-          media="(min-width: 768px)"
-        />
-        <link rel="preload" as="image" href="/programs/les-entretiens-logo.png" />
-      </head>
       <body className="bg-[#050816] text-white">
         <SiteHeader />
         {children}

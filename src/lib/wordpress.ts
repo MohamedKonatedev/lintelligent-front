@@ -1,6 +1,7 @@
 import { getVideoUrlFromPost, getYoutubeThumbnail } from "./youtube-thumbnail";
+import { getWpApiBase, getWpOrigin } from "./wp-config";
 
-const WP_API = "http://cms.lintelligent.tv/wp-json/wp/v2";
+const WP_API = getWpApiBase();
 
 /** Fetch JSON depuis le CMS ; null si réseau / HTTP erreur / JSON invalide (évite un crash au build). */
 async function wpFetchJson<T>(url: string, init?: RequestInit): Promise<T | null> {
@@ -78,10 +79,40 @@ export async function getVideoBySlug(slug: string): Promise<WpPost | null> {
   const data = await wpFetchJson<WpPost[]>(
     `${WP_API}/videos?slug=${encodeURIComponent(slug)}&per_page=1&_embed`,
     {
-      next: { revalidate: 120 },
+      next: { revalidate: 3600 },
     }
   );
   return data?.[0] ?? null;
+}
+
+/** Slugs pour `generateStaticParams` (pagination complète REST). */
+export async function getAllVideoSlugs(): Promise<string[]> {
+  const meta = await getVideosSitemapMeta();
+  if (!meta || meta.total === 0) return [];
+
+  const slugs: string[] = [];
+  for (let page = 1; page <= meta.totalPages; page += 1) {
+    const batch = await wpFetchJson<Array<{ slug: string }>>(
+      `${WP_API}/videos?per_page=${SITEMAP_VIDEO_PER_PAGE}&page=${page}&_fields=slug`,
+      { next: { revalidate: 3600 } }
+    );
+    if (!batch?.length) break;
+    slugs.push(...batch.map((p) => p.slug));
+  }
+  return slugs;
+}
+
+/** Replays connexes légers (sans charger 100 entrées embed). */
+export async function getRecentVideosForRelated(
+  excludeId: number,
+  limit = 8
+): Promise<WpPost[]> {
+  const fields = "id,slug,title,excerpt,date,categories,acf";
+  const data = await wpFetchJson<WpPost[]>(
+    `${WP_API}/videos?per_page=${limit + 4}&_fields=${fields}`,
+    { next: { revalidate: 3600 } }
+  );
+  return (data ?? []).filter((v) => v.id !== excludeId).slice(0, limit);
 }
 
 const SITEMAP_VIDEO_PER_PAGE = 100;
@@ -138,9 +169,9 @@ export function getFeaturedImage(post: WpPost): string | null {
 
   if (!url) return null;
 
-  return url
-    .replace("http://cms.lintelligent.tv", "https://cms.lintelligent.tv")
-    .replace("https://cms.lintelligent.tv", "https://cms.lintelligent.tv");
+  const origin = getWpOrigin();
+  const httpsOrigin = origin.replace(/^http:\/\//, "https://");
+  return url.replace(origin, httpsOrigin);
 }
 
 /** Featured image, else YouTube thumbnail from ACF video URL, else null (caller supplies fallback). */

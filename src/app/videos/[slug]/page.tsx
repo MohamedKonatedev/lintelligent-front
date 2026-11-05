@@ -1,9 +1,9 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import SiteHeader from "@/app/components/SiteHeader";
 import ShareButton from "@/app/components/ShareButton";
 import {
-  getAllVideos,
+  getAllVideoSlugs,
+  getRecentVideosForRelated,
   getReplayCardImage,
   getVideoBySlug,
   stripHtml,
@@ -16,6 +16,13 @@ type PageProps = {
     slug: string;
   }>;
 };
+
+export const revalidate = 3600;
+
+export async function generateStaticParams() {
+  const slugs = await getAllVideoSlugs();
+  return slugs.map((slug) => ({ slug }));
+}
 
 function formatDate(date: string) {
   return new Intl.DateTimeFormat("fr-FR", {
@@ -173,10 +180,7 @@ export async function generateMetadata({ params }: PageProps) {
 export default async function VideoPage({ params }: PageProps) {
   const { slug } = await params;
 
-  const [video, videos] = await Promise.all([
-    getVideoBySlug(slug),
-    getAllVideos(100),
-  ]);
+  const video = await getVideoBySlug(slug);
 
   if (!video) {
     notFound();
@@ -209,9 +213,7 @@ export default async function VideoPage({ params }: PageProps) {
 
   const embedUrl = getYoutubeEmbed(videoUrl);
 
-  const relatedVideos = videos
-    .filter((v: any) => v.id !== video.id)
-    .slice(0, 8);
+  const relatedVideos = await getRecentVideosForRelated(video.id, 8);
 
   const videoObjectJsonLd = buildVideoObjectJsonLd({
     video,
@@ -229,8 +231,6 @@ export default async function VideoPage({ params }: PageProps) {
         }}
       />
       <main className="min-h-screen bg-[#070b1a] text-white">
-      <SiteHeader />
-
       <section className="relative overflow-hidden">
         <div className="absolute inset-0 bg-[linear-gradient(135deg,#08101f_0%,#0b1223_45%,#10192f_100%)]" />
         <div className="absolute inset-0 bg-[radial-gradient(circle_at_left,rgba(227,25,35,0.10),transparent_28%)]" />

@@ -1,6 +1,7 @@
 import { getVideosSitemapMeta } from "@/lib/wordpress";
+import { SITE_ORIGIN } from "@/lib/site";
 
-export const SITE_BASE_URL = "https://lintelligent.tv";
+export const SITE_BASE_URL = SITE_ORIGIN;
 
 /** Doit rester aligné avec la limite utilisée dans `app/sitemap.ts`. */
 export const VIDEOS_PER_SITEMAP_FILE = 10_000;

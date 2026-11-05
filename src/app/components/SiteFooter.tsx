@@ -1,6 +1,9 @@
 "use client";
 
+import { getMediaGroupLinks } from "@/lib/media-group-links";
+
 export default function SiteFooter() {
+  const mediaGroupLinks = getMediaGroupLinks();
   return (
     <footer className="bg-[#050914] text-white">
       <div className="mx-auto max-w-7xl px-4 py-12 sm:px-6 lg:px-8">
@@ -53,6 +56,28 @@ export default function SiteFooter() {
               </li>
             </ul>
           </div>
+
+          {mediaGroupLinks.length > 0 && (
+            <div>
+              <h3 className="mb-4 text-sm font-semibold uppercase tracking-[0.16em] text-white/55">
+                Groupe &amp; médias
+              </h3>
+              <ul className="space-y-3 text-sm text-white/78">
+                {mediaGroupLinks.map((item) => (
+                  <li key={item.href}>
+                    <a
+                      href={item.href}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="transition hover:text-red-400"
+                    >
+                      {item.name}
+                    </a>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
 
           <div>
             <h3 className="mb-4 text-sm font-semibold uppercase tracking-[0.16em] text-white/55">

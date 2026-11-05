@@ -1,8 +1,7 @@
 import type { WpPost } from "@/lib/wordpress";
 import { getReplayCardImage, stripHtml } from "@/lib/wordpress";
 import { extractYoutubeVideoId } from "@/lib/youtube-thumbnail";
-
-const SITE_ORIGIN = "https://lintelligent.tv";
+import { ORGANIZATION_LOGO_PATH, SITE_ORIGIN, absoluteUrl } from "@/lib/site";
 
 /** Convertit une durée type « 16:09 » ou « 1:16:09 » en ISO 8601 (PT…) pour schema.org. */
 export function parseDurationToIso8601(raw: string | undefined | null): string | undefined {
@@ -111,7 +110,7 @@ export function buildVideoObjectJsonLd(input: {
       name: "L'Intelligent TV",
       logo: {
         "@type": "ImageObject",
-        url: `${SITE_ORIGIN}/home/IAtv-logo.png`,
+        url: absoluteUrl(ORGANIZATION_LOGO_PATH),
       },
     },
   };
