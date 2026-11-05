@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useMemo, useRef, useState } from "react";
+import OptimizedReplayImage from "@/app/components/OptimizedReplayImage";
 
 type ReplayVideo = {
   id: number;
@@ -197,14 +198,10 @@ export default function ReplaysCatalog({ videos, categories }: Props) {
                   >
                     <div className="overflow-hidden rounded-[22px] border border-white/10 bg-white/[0.04] transition hover:-translate-y-1 hover:bg-white/[0.06]">
                       <div className="relative aspect-[3/4] overflow-hidden bg-black">
-                        <img
+                        <OptimizedReplayImage
                           src={video.image}
                           alt={video.title}
-                          loading={
-                            carouselIndex < 5 ? "eager" : "lazy"
-                          }
-                          decoding="async"
-                          className="absolute inset-0 h-full w-full object-cover transition duration-500 group-hover:scale-[1.04]"
+                          className="object-cover transition duration-500 group-hover:scale-[1.04]"
                         />
                       </div>
 

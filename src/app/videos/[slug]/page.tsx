@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import ShareButton from "@/app/components/ShareButton";
+import OptimizedReplayImage from "@/app/components/OptimizedReplayImage";
 import {
   getAllVideoSlugs,
   getRecentVideosForRelated,
@@ -401,19 +402,20 @@ export default async function VideoPage({ params }: PageProps) {
         </div>
 
         <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4">
-          {relatedVideos.map((item: any, relatedIndex) => (
+          {relatedVideos.map((item: any) => (
             <Link
               key={item.id}
               href={`/videos/${item.slug}`}
               className="group overflow-hidden rounded-[20px] border border-white/10 bg-white/[0.04] transition hover:-translate-y-1 hover:bg-white/[0.06]"
             >
               <div className="relative aspect-[3/4] overflow-hidden bg-black">
-                <img
-                  src={getReplayCardImage(item) || "/programs/les-entretiens-home-square.jpg"}
+                <OptimizedReplayImage
+                  src={
+                    getReplayCardImage(item) ||
+                    "/programs/les-entretiens-home-square.jpg"
+                  }
                   alt={stripHtml(item.title?.rendered || "")}
-                  loading="lazy"
-                  decoding="async"
-                  className="h-full w-full object-cover transition duration-500 group-hover:scale-[1.04]"
+                  className="object-cover transition duration-500 group-hover:scale-[1.04]"
                 />
               </div>
 

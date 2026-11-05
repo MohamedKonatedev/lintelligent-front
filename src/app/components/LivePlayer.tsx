@@ -1,12 +1,20 @@
 "use client";
 
-import { useEffect, useMemo, useRef } from "react";
+import Image from "next/image";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { sendGAEvent } from "@next/third-parties/google";
+import { HOME_LIVE_POSTER, IMAGE_QUALITY } from "@/lib/image-defaults";
 import { isLikelyStreamUrl } from "@/lib/live-stream";
 
 type Props = {
   src: string;
   title?: string;
+  /**
+   * Accueil : affiche une affiche statique (LCP) puis attache le flux après idle/load.
+   * `/live` : laisser `false` pour démarrage immédiat.
+   */
+  deferStreamLoad?: boolean;
+  poster?: string;
 };
 
 function streamHost(src: string): string {
@@ -17,21 +25,44 @@ function streamHost(src: string): string {
   }
 }
 
+function scheduleDeferredAttach(onAttach: () => void) {
+  const run = () => {
+    if (typeof window.requestIdleCallback === "function") {
+      window.requestIdleCallback(onAttach, { timeout: 2500 });
+    } else {
+      window.setTimeout(onAttach, 150);
+    }
+  };
+
+  if (document.readyState === "complete") {
+    run();
+  } else {
+    window.addEventListener("load", run, { once: true });
+  }
+}
+
 export default function LivePlayer({
   src,
   title = "Live L'Intelligent TV",
+  deferStreamLoad = false,
+  poster = HOME_LIVE_POSTER,
 }: Props) {
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const useDirectStream = useMemo(() => isLikelyStreamUrl(src), [src]);
+  const [attachStream, setAttachStream] = useState(!deferStreamLoad);
 
   useEffect(() => {
-    if (!useDirectStream || !videoRef.current) return;
+    if (!deferStreamLoad) return;
+    scheduleDeferredAttach(() => setAttachStream(true));
+  }, [deferStreamLoad]);
+
+  useEffect(() => {
+    if (!attachStream || !useDirectStream || !videoRef.current) return;
 
     const video = videoRef.current;
     let hlsInstance: { destroy: () => void } | null = null;
     let cancelled = false;
 
-    /** Tente le son dès l’ouverture ; si le navigateur bloque, bascule en muet puis réessaie au premier geste. */
     const tryUnmutedAutoplay = async () => {
       video.muted = false;
       video.volume = 1;
@@ -39,7 +70,6 @@ export default function LivePlayer({
         await video.play();
         return true;
       } catch {
-        // Politique navigateur : autoplay avec son souvent refusé.
         video.muted = true;
         try {
           await video.play();
@@ -58,7 +88,6 @@ export default function LivePlayer({
       void v.play().catch(() => {});
     };
 
-    // Si le son a été bloqué, le premier geste sur la page débloque le son (sans bouton dédié).
     const gestureEvents: Array<keyof WindowEventMap> = [
       "pointerdown",
       "keydown",
@@ -108,11 +137,10 @@ export default function LivePlayer({
       hlsInstance?.destroy();
       if (video) video.removeAttribute("src");
     };
-  }, [src, useDirectStream]);
+  }, [src, useDirectStream, attachStream]);
 
-  /** Tracking GA4 (lecture réelle HLS uniquement — n’altère pas le pipeline de lecture). */
   useEffect(() => {
-    if (!useDirectStream) return;
+    if (!attachStream || !useDirectStream) return;
 
     const video = videoRef.current;
     if (!video) return;
@@ -228,19 +256,34 @@ export default function LivePlayer({
       video.removeEventListener("ended", onEnded);
       video.removeEventListener("error", onError);
     };
-  }, [src, useDirectStream]);
+  }, [src, useDirectStream, attachStream]);
+
+  const showPosterOnly = deferStreamLoad && !attachStream && useDirectStream;
 
   return (
-    <div className="w-full overflow-hidden rounded-[18px] bg-black">
-      {useDirectStream ? (
+    <div className="relative w-full overflow-hidden rounded-[18px] bg-black">
+      {showPosterOnly ? (
+        <div className="relative aspect-video w-full">
+          <Image
+            src={poster}
+            alt=""
+            fill
+            priority
+            sizes="(max-width: 1024px) 100vw, 896px"
+            quality={IMAGE_QUALITY}
+            className="object-cover"
+          />
+        </div>
+      ) : useDirectStream ? (
         <video
           ref={videoRef}
           title={title}
           className="block aspect-video w-full border-0"
           controls
           playsInline
-          preload="auto"
+          preload={deferStreamLoad ? "none" : "metadata"}
           autoPlay
+          poster={poster}
         />
       ) : (
         <iframe
@@ -249,6 +292,7 @@ export default function LivePlayer({
           className="block aspect-video w-full border-0"
           allow="autoplay; fullscreen; picture-in-picture"
           allowFullScreen
+          loading="lazy"
         />
       )}
     </div>

@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { getRecentPrograms } from "@/app/hooks/useRecentPrograms";
+import BrandLogo from "@/app/components/BrandLogo";
 
 const menuItems = [
   { label: "Replays", href: "/replays" },
@@ -173,15 +174,7 @@ export default function SiteHeader() {
         }`}
       >
         <div className="mx-auto hidden h-[80px] max-w-7xl items-center px-4 sm:px-5 lg:flex">
-          <a href="/" className="flex shrink-0 items-center">
-            <img
-              src="/home/IAtv-logo.png"
-              alt="L'Intelligent TV"
-              loading="eager"
-              decoding="async"
-              className="h-10 w-auto object-contain xl:h-11"
-            />
-          </a>
+          <BrandLogo priority className="h-10 w-auto object-contain xl:h-11" />
 
           <nav className="ml-auto flex items-center gap-6 xl:gap-8">
             {desktopNav.map((item) =>
@@ -217,15 +210,12 @@ export default function SiteHeader() {
         </div>
 
         <div className="mx-auto flex h-[70px] max-w-7xl items-center px-4 sm:h-[74px] sm:px-5 lg:hidden">
-          <a href="/" className="relative z-[80] flex shrink-0 items-center">
-            <img
-              src="/home/IAtv-logo.png"
-              alt="L'Intelligent TV"
-              loading="eager"
-              decoding="async"
+          <div className="relative z-[80] shrink-0">
+            <BrandLogo
+              link
               className="h-7 w-auto object-contain sm:h-8"
             />
-          </a>
+          </div>
 
           <button
             type="button"
@@ -269,15 +259,9 @@ export default function SiteHeader() {
           }`}
         >
           <div className="mb-8 flex items-center justify-between">
-            <a href="/" onClick={() => setMenuOpen(false)} className="flex items-center">
-              <img
-                src="/home/IAtv-logo.png"
-                alt="L'Intelligent TV"
-                loading="eager"
-                decoding="async"
-                className="h-8 w-auto object-contain"
-              />
-            </a>
+            <div onClick={() => setMenuOpen(false)}>
+              <BrandLogo link className="h-8 w-auto object-contain" />
+            </div>
 
             <div className="flex items-center gap-2">
               <button

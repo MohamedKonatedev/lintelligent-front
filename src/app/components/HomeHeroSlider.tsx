@@ -1,8 +1,10 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import Image from "next/image";
 import Link from "next/link";
+import { useEffect, useRef, useState } from "react";
 import { PROGRAMS } from "@/app/programmes/programs";
+import { HERO_SLIDE_SIZES, IMAGE_QUALITY } from "@/lib/image-defaults";
 
 const slides = PROGRAMS.map((p) => ({
   title: p.title,
@@ -51,70 +53,92 @@ export default function HomeHeroSlider() {
     <section className="pt-0">
       <div className="itv-hero-slider nci-style">
         <div className="itv-slides">
-          {slides.map((slide, index) => (
-            <article
-              key={slide.title}
-              className={`itv-slide ${index === current ? "is-active" : ""} ${
-                animating && index === current ? "is-reveal" : ""
-              }`}
-              style={
-                {
-                  "--accent": slide.accent,
-                  "--logo-d": slide.logoD,
-                  "--logo-t": slide.logoT,
-                  "--logo-m": slide.logoM,
-                } as React.CSSProperties
-              }
-            >
-              <div className="itv-poster">
-                <picture className="itv-poster__media">
-                  <source
-                    media="(max-width: 767px)"
-                    srcSet={slide.imageMobile}
-                  />
-                  <img
-                    src={slide.imageDesktop}
-                    alt={slide.title}
-                    loading={index === current ? "eager" : "lazy"}
-                    decoding={index === current ? "sync" : "async"}
-                    fetchPriority={index === current ? "high" : "low"}
-                  />
-                </picture>
+          {slides.map((slide, index) => {
+            const isActive = index === current;
+            const loadMedia = isActive;
 
-                <div className="itv-poster__overlay" />
-                <div className="itv-strip-reveal" />
+            return (
+              <article
+                key={slide.title}
+                className={`itv-slide ${isActive ? "is-active" : ""} ${
+                  animating && isActive ? "is-reveal" : ""
+                }`}
+                style={
+                  {
+                    "--accent": slide.accent,
+                    "--logo-d": slide.logoD,
+                    "--logo-t": slide.logoT,
+                    "--logo-m": slide.logoM,
+                  } as React.CSSProperties
+                }
+              >
+                <div className="itv-poster">
+                  <div className="itv-poster__media">
+                    {loadMedia ? (
+                      <>
+                        <Image
+                          src={slide.imageMobile}
+                          alt={slide.title}
+                          fill
+                          sizes={HERO_SLIDE_SIZES}
+                          quality={IMAGE_QUALITY}
+                          priority={isActive}
+                          className="itv-hero-img md:hidden"
+                        />
+                        <Image
+                          src={slide.imageDesktop}
+                          alt={slide.title}
+                          fill
+                          sizes={HERO_SLIDE_SIZES}
+                          quality={IMAGE_QUALITY}
+                          priority={isActive}
+                          className="itv-hero-img hidden md:block"
+                        />
+                      </>
+                    ) : (
+                      <div className="absolute inset-0 bg-[#101722]" aria-hidden />
+                    )}
+                  </div>
 
-                <div className="itv-panel">
-                  <div className="itv-panel__inner">
-                    <img
-                      className="itv-slide__logo"
-                      src={slide.logo}
-                      alt={slide.title}
-                      loading={index === current ? "eager" : "lazy"}
-                      decoding={index === current ? "sync" : "async"}
-                      fetchPriority={index === current ? "high" : "low"}
-                    />
+                  <div className="itv-poster__overlay" />
+                  <div className="itv-strip-reveal" />
 
-                    <div className="itv-schedule">
-                      <div className="itv-schedule__day">{slide.day}</div>
-                      <div className="itv-schedule__row">
-                        <div className="itv-schedule__time">
-                          {slide.time.split(" ")[0]} <span>GMT</span>
+                  <div className="itv-panel">
+                    <div className="itv-panel__inner">
+                      {loadMedia ? (
+                        // eslint-disable-next-line @next/next/no-img-element -- dimensions pilotées par CSS (--logo-d/t/m)
+                        <img
+                          className="itv-slide__logo"
+                          src={slide.logo}
+                          alt={slide.title}
+                          loading="lazy"
+                          decoding="async"
+                        />
+                      ) : (
+                        <div className="itv-slide__logo" aria-hidden />
+                      )}
+
+                      <div className="itv-schedule">
+                        <div className="itv-schedule__day">{slide.day}</div>
+                        <div className="itv-schedule__row">
+                          <div className="itv-schedule__time">
+                            {slide.time.split(" ")[0]} <span>GMT</span>
+                          </div>
+                          <div className="itv-schedule__host">{slide.host}</div>
                         </div>
-                        <div className="itv-schedule__host">{slide.host}</div>
                       </div>
+
+                      <p className="itv-mobile-meta">{slide.mobileMeta}</p>
+
+                      <Link href={slide.href} className="itv-btn">
+                        Voir l&apos;émission
+                      </Link>
                     </div>
-
-                    <p className="itv-mobile-meta">{slide.mobileMeta}</p>
-
-                    <Link href={slide.href} className="itv-btn">
-                      Voir l&apos;émission
-                    </Link>
                   </div>
                 </div>
-              </div>
-            </article>
-          ))}
+              </article>
+            );
+          })}
         </div>
 
         <button

@@ -45,7 +45,7 @@ export default function ProgrammesPage() {
                     src={program.imageMobile}
                     alt={program.title}
                     fill
-                    priority={index < 4}
+                    priority={index < 2}
                     sizes="(max-width: 1279px) 50vw, 33vw"
                     className="object-cover object-center transition duration-700 group-hover:scale-[1.04] group-hover:grayscale"
                   />
