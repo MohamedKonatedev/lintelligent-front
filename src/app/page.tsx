@@ -57,7 +57,7 @@ export default function HomePage() {
       ))}
       <main className="min-h-screen bg-[#101722] text-[#f3f6fb]">
         <section className="mx-auto max-w-7xl px-4 pb-10 pt-24 sm:px-6 sm:pb-12 sm:pt-28">
-          <h1 className="mb-6 max-w-4xl text-2xl font-extrabold leading-tight tracking-tight text-white sm:text-3xl lg:text-4xl">
+          <h1 className="sr-only">
             L&apos;Intelligent TV — information en direct, replays et émissions
           </h1>
 
