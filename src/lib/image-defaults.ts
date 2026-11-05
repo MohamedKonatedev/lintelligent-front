@@ -4,8 +4,8 @@ export const IMAGE_QUALITY = 78;
 export const PROGRAM_HOME_SQUARE_SIZES =
   "(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 420px";
 
-/** Hero mobile : smartphones uniquement (< 640px). Tablette + desktop = visuel desktop. */
-export const HERO_MOBILE_MEDIA = "(max-width: 639px)";
+/** Hero téléphone : ≤767px (aligné layout mobile). Tablette ≥768px + ordinateur = hero desktop. */
+export const HERO_MOBILE_MEDIA = "(max-width: 767px)";
 export const HERO_MOBILE_SIZES = "100vw";
 export const HERO_DESKTOP_SIZES = "100vw";
 /** @deprecated Utiliser HERO_MOBILE_SIZES / HERO_DESKTOP_SIZES */
