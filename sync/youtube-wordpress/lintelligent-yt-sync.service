@@ -1,0 +1,23 @@
+# Ne pas activer sur le VPS avant validation explicite.
+# Le service refuse d'écrire tant que YT_SYNC_ENABLED n'est pas à 1
+# et qu'un bootstrap n'a pas figé import_after.
+
+[Unit]
+Description=Nouvelles vidéos YouTube vers WordPress (L'Intelligent TV)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+User=yt-sync
+Group=yt-sync
+EnvironmentFile=/etc/lintelligent/youtube-sync.env
+WorkingDirectory=/var/lib/lintelligent-yt-sync
+ExecStart=/usr/bin/python3 /opt/lintelligent-yt-sync/yt_wp_sync.py --apply
+TimeoutStartSec=180
+Nice=10
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/var/lib/lintelligent-yt-sync

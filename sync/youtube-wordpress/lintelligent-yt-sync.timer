@@ -1,0 +1,15 @@
+# Ne pas activer (systemctl enable --now) avant validation explicite.
+
+[Unit]
+Description=Synchronisation YouTube toutes les 10 minutes
+
+[Timer]
+OnBootSec=2min
+OnUnitActiveSec=10min
+AccuracySec=30s
+RandomizedDelaySec=20
+Persistent=true
+Unit=lintelligent-yt-sync.service
+
+[Install]
+WantedBy=timers.target
