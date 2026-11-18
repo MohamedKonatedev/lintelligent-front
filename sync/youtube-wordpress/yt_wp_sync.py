@@ -394,6 +394,8 @@ def pair_emissions(categories: list[dict]) -> tuple[list[EmissionCategory], list
         programme = PROGRAMME_TITLES.get(slug, "")
         if programme and normalize_label(programme) not in {normalize_label(item) for item in names}:
             names.append(programme)
+        if slug == "linvite":
+            names.append("L'invitée")
         paired.append(EmissionCategory(term_id=term_id, slug=slug, names=tuple(names)))
     extras = [
         row
@@ -1787,9 +1789,11 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--history-from", default=HISTORY_FROM, help="Jour de début inclus, heure d'Abidjan.")
     parser.add_argument("--history-to", default=HISTORY_TO, help="Jour de fin inclus, heure d'Abidjan.")
     parser.add_argument("--editorial", action="store_true", help="Prévisualise ou réécrit les vidéos déjà importées.")
+    parser.add_argument("--editorial-pack", type=Path, help="Applique les textes validés d'un fichier JSON, sans génération.")
     parser.add_argument("--editorial-restore", action="store_true", help="Restaure titre et contenu depuis une sauvegarde.")
     parser.add_argument("--backup", type=Path, help="Sauvegarde éditoriale à restaurer.")
-    parser.add_argument("--with-ai", action="store_true", help="Autorise une génération IA pour cette commande.")
+    parser.add_argument("--with-ai", action="store_true", help="Autorise une génération IA pour les nouvelles vidéos ou l'aperçu généré.")
+    parser.add_argument("--include-review", action="store_true", help="Inclut les fiches marquées requires_review. À n'utiliser qu'après validation.")
     parser.add_argument("--include-timer", action="store_true", help="Inclut aussi les vidéos créées par le timer.")
     return parser
 
@@ -1813,6 +1817,8 @@ def main(argv: list[str] | None = None) -> int:
             return run_auth_check(env_settings())
         if args.editorial_restore:
             return editorial_backfill.execute_restore(args, sys.modules[__name__])
+        if args.editorial_pack:
+            return editorial_backfill.execute_pack(args, sys.modules[__name__])
         if args.editorial:
             return editorial_backfill.execute(args, sys.modules[__name__])
         if args.history and args.bootstrap:

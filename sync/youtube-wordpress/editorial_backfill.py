@@ -8,6 +8,7 @@ interdit de modification sur les vidéos existantes.
 from __future__ import annotations
 
 import json
+import sys
 from datetime import datetime, timezone
 from pathlib import Path
 from zoneinfo import ZoneInfo
@@ -269,6 +270,193 @@ def execute(args, sync) -> int:
     json.dump(report, sys.stdout, ensure_ascii=False, indent=2)
     sys.stdout.write("\n")
     sync.LOG.info("éditorial mode=%s a_modifier=%s", report["mode"], report["to_update"])
+    return sync.EXIT_OK
+
+
+def execute_pack(args, sync) -> int:
+    """Applique les textes du fichier validé. Aucune génération."""
+    env = sync.env_settings()
+    origin = (env.get("WP_BASE_URL") or sync.DEFAULT_WP_BASE).rstrip("/")
+    if not args.editorial_pack:
+        raise sync.SyncError("fichier éditorial requis", sync.EXIT_CONFIG)
+    try:
+        items = editorial.load_editorial_pack(json.loads(Path(args.editorial_pack).read_text(encoding="utf-8")))
+    except (OSError, json.JSONDecodeError, ValueError) as exc:
+        raise sync.SyncError(f"fichier éditorial refusé : {exc}", sync.EXIT_CONFIG) from exc
+    state_dir_raw = str(args.state_dir or env.get("YT_SYNC_STATE_DIR") or "")
+    if not state_dir_raw:
+        raise sync.SyncError("dossier d'état requis pour identifier les vidéos importées", sync.EXIT_CONFIG)
+    state_path, lock_path = sync.state_paths(Path(state_dir_raw))
+    state = sync.load_state(state_path)
+    tracked = state.get("synced") if isinstance(state.get("synced"), dict) else {}
+    preserved_after = state.get("import_after")
+    auth = credentials(sync, env)
+    if args.apply:
+        if env.get("YT_EDITORIAL_APPLY") != "1":
+            raise sync.SyncError("YT_EDITORIAL_APPLY doit valoir 1", sync.EXIT_CONFIG)
+        if auth is None:
+            raise sync.SyncError("WP_EDITORIAL_USER et WP_EDITORIAL_APP_PASSWORD sont requis", sync.EXIT_CONFIG)
+    http = sync.HttpClient(allow_write=bool(args.apply))
+    if args.apply and auth is not None:
+        assert_editorial_account(sync, sync.auth_check(http, origin, auth), env.get("WP_USER") or "")
+    rows: list[dict[str, object]] = []
+    planned: list[dict[str, object]] = []
+    for item in items:
+        entry = tracked.get(item["youtube_id"])
+        in_state = (
+            isinstance(entry, dict)
+            and entry.get("wp_id") == item["wp_id"]
+            and str(entry.get("source") or "") == "history"
+        )
+        post_view = None
+        post = None
+        raw_title = ""
+        raw_content = ""
+        acf: dict = {}
+        if in_state:
+            post = fetch_video(sync, http, origin, int(item["wp_id"]), auth if args.apply else None)
+            if post is not None:
+                acf = post.get("acf") if isinstance(post.get("acf"), dict) else {}
+                raw_title = raw_field(post.get("title"))
+                raw_content = raw_field(post.get("content"))
+                post_view = {
+                    "title": editorial.plain_text(raw_title),
+                    "content": raw_content,
+                    "youtube_id": sync.extract_youtube_id(str(acf.get("lien_video") or "")) or "",
+                }
+        decision = editorial.classify_pack_item(
+            item,
+            post_view,
+            in_state=in_state,
+            include_review=bool(args.include_review),
+        )
+        rows.append(
+            {
+                "wp_id": item["wp_id"],
+                "youtube_id": item["youtube_id"],
+                "decision": decision,
+                "requires_review": bool(item.get("requires_review")),
+                "review_note": item.get("review_note") or "",
+                "before_title": editorial.plain_text(raw_title) if raw_title else item.get("original_title"),
+                "after_title": item["title"] if decision == "update" else "",
+                "after_summary": item["summary"] if decision == "update" else "",
+            }
+        )
+        if decision != "update" or post_view is None:
+            continue
+        planned.append(
+            {
+                "wp_id": item["wp_id"],
+                "youtube_id": item["youtube_id"],
+                "title": raw_title,
+                "content": raw_content,
+                "categories": post.get("categories") if post else [],
+                "acf": acf,
+                "featured_media": post.get("featured_media") if post else None,
+                "new_title": str(item["title"]),
+                "new_summary": str(item["summary"]),
+                "original_title": str(item["original_title"]),
+                "original_summary": str(item["original_summary"]),
+            }
+        )
+    report: dict[str, object] = {
+        "mode": "editorial-pack-apply" if args.apply else "editorial-pack-dry-run",
+        "writes": False,
+        "generated": False,
+        "pack_count": len(items),
+        "to_update": sum(1 for row in rows if row["decision"] == "update"),
+        "held_for_review": sum(1 for row in rows if row["decision"] == "skip-review"),
+        "import_after": preserved_after,
+        "decisions": rows,
+        "notes": [
+            "Les textes viennent exclusivement du fichier validé.",
+            "Les fiches requires_review ne sont pas appliquées sans --include-review.",
+            "Seuls le titre et le contenu sont envoyés.",
+            "Les vidéos absentes de l'import historique ne sont pas modifiées.",
+            "import_after n'est pas modifié.",
+        ],
+    }
+    if args.apply and planned:
+        stamp_name = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
+        backup_path = Path(state_dir_raw) / f"editorial-backup-{stamp_name}.json"
+        backup_path.write_text(
+            json.dumps(
+                {
+                    "created_at": stamp_name,
+                    "items": [
+                        {key: value for key, value in item.items() if key not in {"new_title", "new_summary"}}
+                        for item in planned
+                    ],
+                },
+                ensure_ascii=False,
+                indent=2,
+            )
+            + "\n",
+            encoding="utf-8",
+        )
+        sync.LOG.info("sauvegarde éditoriale : %s", backup_path)
+        log_path = Path(state_dir_raw) / "editorial.log"
+        with sync.exclusive_lock(lock_path):
+            state = sync.load_state(state_path)
+            if state.get("import_after") != preserved_after:
+                raise sync.SyncError("import_after a changé pendant la correction", sync.EXIT_ERROR)
+            assert auth is not None
+            for item in planned:
+                copy = editorial.EditorialCopy(
+                    title=str(item["new_title"]),
+                    summary=str(item["new_summary"]),
+                    method="pack",
+                    needs_review=False,
+                    note="Texte validé dans le fichier éditorial.",
+                )
+                update_video_text(
+                    sync,
+                    http,
+                    origin,
+                    auth,
+                    int(item["wp_id"]),
+                    copy.title,
+                    editorial.editorial_paragraph(copy.summary),
+                )
+                stamp(
+                    sync,
+                    state,
+                    str(item["youtube_id"]),
+                    copy,
+                    str(item["original_title"]),
+                    str(item["original_summary"]),
+                )
+                if state.get("import_after") != preserved_after:
+                    raise sync.SyncError("import_after a été modifié", sync.EXIT_ERROR)
+                sync.save_state(state_path, state)
+                report["writes"] = True
+                with log_path.open("a", encoding="utf-8") as handle:
+                    handle.write(
+                        json.dumps(
+                            {
+                                "at": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
+                                "wp_id": item["wp_id"],
+                                "video_id": item["youtube_id"],
+                                "method": "pack",
+                                "title": copy.title,
+                            },
+                            ensure_ascii=False,
+                        )
+                        + "\n"
+                    )
+                sync.LOG.info("texte validé appliqué wp_id=%s", item["wp_id"])
+    if args.report:
+        Path(args.report).parent.mkdir(parents=True, exist_ok=True)
+        Path(args.report).write_text(json.dumps(report, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+    json.dump(report, sys.stdout, ensure_ascii=False, indent=2)
+    sys.stdout.write("\n")
+    sync.LOG.info(
+        "paquet mode=%s fiches=%s a_modifier=%s en_revue=%s",
+        report["mode"],
+        report["pack_count"],
+        report["to_update"],
+        report["held_for_review"],
+    )
     return sync.EXIT_OK
 
 

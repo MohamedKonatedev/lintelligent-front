@@ -15,7 +15,7 @@ import unicodedata
 import urllib.error
 import urllib.request
 from dataclasses import dataclass
-from datetime import datetime, timedelta, timezone
+from datetime import datetime
 from zoneinfo import ZoneInfo
 
 MONTHS = (
@@ -32,7 +32,24 @@ MONTHS = (
     "novembre",
     "décembre",
 )
-ACRONYMS = {"RHDP", "PDCI", "RDA", "AMF", "ONG", "IA", "TV", "FIFA", "ONU"}
+ACRONYMS = {
+    "RHDP",
+    "PDCI",
+    "RDA",
+    "AMF",
+    "ONG",
+    "IA",
+    "TV",
+    "FIFA",
+    "FIF",
+    "ONU",
+    "CNPS",
+    "NISA",
+    "SOTRA",
+    "WAFA",
+    "JT",
+    "OFF",
+}
 SMALL_WORDS = {
     "a",
     "au",
@@ -117,14 +134,24 @@ STYLE_WORDS = SMALL_WORDS | {
 }
 PROMO_RE = re.compile(
     r"abonn|whatsapp|wa\.me|suivez[-\s]|likez|partagez|https?://|www\.|"
-    r"cliquez|lien en bio|rejoignez|toutes les plateformes|disponible sur",
+    r"cliquez|lien en bio|rejoignez|toutes les plateformes|disponible sur|"
+    r"lintelligent\.tv|24\s*/\s*24|en kiosque|média dont vous avez rêvé|programmes télés",
     re.IGNORECASE,
+)
+TOKEN_CASE_RE = re.compile(r"[A-Za-zÀ-ÿ0-9]+(?:['’-][A-Za-zÀ-ÿ0-9]+)*")
+PACK_FIELDS = (
+    "wp_id",
+    "youtube_id",
+    "original_title",
+    "original_summary",
+    "title",
+    "summary",
+    "requires_review",
 )
 GUEST_RE = re.compile(r"\b(?:avec|reçoit|recoit)\s+(.+)$", re.IGNORECASE)
 TITLE_PREFIX_RE = re.compile(r"^\s*titre\s*:\s*", re.IGNORECASE)
 TAG_RE = re.compile(r"<[^>]+>")
 TOKEN_RE = re.compile(r"[a-z0-9]{4,}")
-MANUAL_GRACE = timedelta(minutes=20)
 
 
 @dataclass(frozen=True)
@@ -277,7 +304,6 @@ def _sentences(value: str, title: str = "") -> list[str]:
             continue
         kept.append(sentence)
     return kept
-    return kept
 
 
 def factual_summary(source: EditorialSource, guest: str | None) -> tuple[str, bool, str]:
@@ -290,10 +316,10 @@ def factual_summary(source: EditorialSource, guest: str | None) -> tuple[str, bo
             if len(words) + len(extra) <= 45:
                 chosen = chosen.rstrip(".") + ". " + sentences[1]
                 words = chosen.split()
-        if len(words) > 60:
+        if len(words) > 40:
             chosen = " ".join(words[:40]).rstrip(",;:") + "."
-            return chosen, True, "Résumé raccourci : vérification éditoriale conseillée."
-        review = not 12 <= len(chosen.split()) <= 50
+            return chosen, True, "Résumé raccourci à 40 mots. Vérification éditoriale conseillée."
+        review = not 20 <= len(chosen.split()) <= 40
         note = "Reformulation limitée aux phrases déjà présentes dans la description YouTube."
         if review:
             note += " Vérification éditoriale conseillée."
@@ -313,13 +339,64 @@ def factual_summary(source: EditorialSource, guest: str | None) -> tuple[str, bo
     )
 
 
+def case_forms(description: str, title: str) -> dict[str, str]:
+    """Casse à conserver : un nom déjà écrit correctement prime sur un titre en capitales."""
+    forms: dict[str, str] = {}
+    for text in (title, description):
+        for match in TOKEN_CASE_RE.finditer(text):
+            raw = match.group(0)
+            key = normalize_label(raw)
+            letters = [char for char in raw if char.isalpha()]
+            if not key or not letters:
+                continue
+            shouting = all(char.isupper() for char in letters)
+            if shouting and 2 <= len(letters) <= 6 and key not in SMALL_WORDS:
+                forms.setdefault(key, raw.upper() if raw.isalpha() else raw)
+    for match in TOKEN_CASE_RE.finditer(description):
+        raw = match.group(0)
+        letters = [char for char in raw if char.isalpha()]
+        if letters and not all(char.isupper() for char in letters):
+            forms[normalize_label(raw)] = raw
+    if re.search(r"\bJT\s+OFF\b", f"{title}\n{description}"):
+        forms["jt off"] = "JT OFF"
+    return forms
+
+
+def restore_casing(text: str, forms: dict[str, str]) -> str:
+    def replace(match: re.Match[str]) -> str:
+        raw = match.group(0)
+        return forms.get(normalize_label(raw), raw)
+
+    return TOKEN_CASE_RE.sub(replace, text)
+
+
+def emission_label(show_name: str, youtube_title: str) -> str:
+    show = normalize_label(show_name)
+    title = normalize_label(youtube_title)
+    if show in {"l invite", "l invitee"}:
+        if "invitee" in title:
+            return "L'invitée"
+        return show_name
+    return show_name
+
+
+def show_name_in_title(show_name: str, title: str) -> bool:
+    show = normalize_label(show_name)
+    titled = normalize_label(title)
+    if show and show in titled:
+        return True
+    return show in {"l invite", "l invitee"} and ("l invite" in titled or "l invitee" in titled)
+
+
 def fallback_editorial(source: EditorialSource) -> EditorialCopy:
     guest = extract_guest(source.youtube_title, source.show_name)
     when = french_date(source.published_at, source.zone)
-    if source.show_name:
-        title = f"{source.show_name} du {when}"
+    forms = case_forms(source.youtube_description, source.youtube_title)
+    label = emission_label(source.show_name, source.youtube_title) if source.show_name else None
+    if label:
+        title = f"{label} du {when}"
         if guest:
-            title += f" avec {guest}"
+            title += f" avec {restore_casing(guest, forms)}"
         else:
             raw = TITLE_PREFIX_RE.sub("", plain_text(source.youtube_title))
             topic = raw.split(":", 1)[1].strip() if ":" in raw else ""
@@ -328,7 +405,7 @@ def fallback_editorial(source: EditorialSource) -> EditorialCopy:
             if topic and show_norm not in normalize_label(topic) and len(topic.split()) >= 3:
                 title += f" : {topic[0].lower() + topic[1:] if topic[0].isupper() else topic}"
     else:
-        title = clean_title(source.youtube_title)
+        title = restore_casing(clean_title(source.youtube_title), forms)
     summary, review, note = factual_summary(source, guest)
     if not title.strip():
         title = clean_title(source.youtube_title) or "Vidéo"
@@ -361,6 +438,20 @@ def unsupported_tokens(text: str, known: str) -> list[str]:
     return unknown
 
 
+def mangled_acronyms(source_text: str, output: str) -> list[str]:
+    damaged: list[str] = []
+    for form in sorted(ACRONYMS):
+        if not re.search(rf"\b{form}\b", source_text):
+            continue
+        if re.search(rf"\b{form}\b", output):
+            continue
+        if re.search(rf"\b{form}\b", output, flags=re.IGNORECASE):
+            damaged.append(form)
+    if "JT OFF" in source_text and "JT OFF" not in output and re.search(r"jt\s+off", output, re.I):
+        damaged.append("JT OFF")
+    return damaged
+
+
 def validate_copy(copy: EditorialCopy, source: EditorialSource) -> EditorialCopy | None:
     title = " ".join(copy.title.split())
     summary = " ".join(copy.summary.split())
@@ -373,7 +464,7 @@ def validate_copy(copy: EditorialCopy, source: EditorialSource) -> EditorialCopy
         return None
     if "\n" in summary or PROMO_RE.search(title + " " + summary):
         return None
-    if source.show_name and normalize_label(source.show_name) not in normalize_label(title):
+    if source.show_name and not show_name_in_title(source.show_name, title):
         return None
     when = french_date(source.published_at, source.zone)
     if source.show_name and when not in title:
@@ -383,6 +474,8 @@ def validate_copy(copy: EditorialCopy, source: EditorialSource) -> EditorialCopy
         return None
     known = _known_text(source, guest)
     if unsupported_tokens(title, known) or unsupported_tokens(summary, known):
+        return None
+    if mangled_acronyms(f"{source.youtube_title}\n{source.youtube_description}", f"{title}\n{summary}"):
         return None
     review = copy.needs_review or not 20 <= len(words) <= 40
     note = copy.note or "Proposition contrôlée à partir des métadonnées YouTube."
@@ -492,11 +585,28 @@ def editorial_paragraph(summary: str) -> str:
     return '<p class="wp-block-paragraph">' + html.escape(plain_text(summary)) + "</p>"
 
 
+def texts_match(current: str, original: str) -> bool:
+    if not str(original or "").strip():
+        return False
+    return normalize_label(plain_text(current)) == normalize_label(plain_text(original))
+
+
+def content_unchanged(current_html: str, original: str) -> bool:
+    """Vrai si le texte actuel contient encore le début du texte d'origine.
+
+    La comparaison porte sur les mots, pas sur l'heure de modification.
+    """
+    probe = " ".join(normalize_label(plain_text(original)).split()[:12])
+    if len(probe) < 24:
+        return False
+    return probe in normalize_label(plain_text(current_html))
+
+
 def classify_backfill(entry: dict, post: dict | None, *, include_timer: bool) -> str:
     """Décide si une vidéo d'état peut recevoir une réécriture.
 
-    Les vidéos absentes de l'état ne sont pas présentées ici : ce sont les
-    publications antérieures au synchroniseur.
+    Une modification humaine est un changement de titre ou de contenu par
+    rapport au texte d'origine enregistré. L'heure de modification ne suffit pas.
     """
     source = str(entry.get("source") or "")
     allowed = {"history"}
@@ -506,24 +616,66 @@ def classify_backfill(entry: dict, post: dict | None, *, include_timer: bool) ->
         return "skip-not-history"
     if not isinstance(post, dict):
         return "skip-missing"
-    try:
-        modified = datetime.fromisoformat(str(post.get("modified_gmt") or "").replace("Z", "+00:00"))
-        created = datetime.fromisoformat(str(post.get("date_gmt") or "").replace("Z", "+00:00"))
-    except ValueError:
-        return "skip-manual"
-    if modified.tzinfo is None:
-        modified = modified.replace(tzinfo=timezone.utc)
-    if created.tzinfo is None:
-        created = created.replace(tzinfo=timezone.utc)
-    applied = str(entry.get("editorial_applied_at") or "")
     current_title = plain_text(str(post.get("title") or ""))
-    if applied:
-        if current_title == plain_text(str(entry.get("editorial_title") or "")):
-            return "skip-already"
+    current_content = str(post.get("content") or "")
+    saved_title = plain_text(str(entry.get("editorial_title") or ""))
+    if entry.get("editorial_applied_at") and saved_title:
+        return "skip-already" if texts_match(current_title, saved_title) else "skip-manual"
+    original_title = str(entry.get("youtube_title") or "")
+    original_body = str(entry.get("youtube_description") or "")
+    if not original_title:
+        return "skip-unverified"
+    if not texts_match(current_title, original_title):
         return "skip-manual"
-    if modified - created > MANUAL_GRACE:
+    if original_body and not content_unchanged(current_content, original_body):
         return "skip-manual"
     return "update"
+
+
+def load_editorial_pack(payload: object) -> list[dict]:
+    if not isinstance(payload, dict) or not isinstance(payload.get("items"), list):
+        raise ValueError("fichier éditorial illisible")
+    items = payload["items"]
+    if not items:
+        raise ValueError("fichier éditorial vide")
+    seen_wp: set[int] = set()
+    seen_yt: set[str] = set()
+    clean: list[dict] = []
+    for item in items:
+        if not isinstance(item, dict) or any(key not in item for key in PACK_FIELDS):
+            raise ValueError("fiche éditoriale incomplète")
+        wp_id = item["wp_id"]
+        youtube_id = str(item["youtube_id"])
+        if not isinstance(wp_id, int) or wp_id < 1 or not re.fullmatch(r"[A-Za-z0-9_-]{11}", youtube_id):
+            raise ValueError("identifiant de fiche invalide")
+        if not str(item["title"]).strip() or not str(item["summary"]).strip():
+            raise ValueError("texte éditorial vide")
+        if wp_id in seen_wp or youtube_id in seen_yt:
+            raise ValueError("doublon dans le fichier éditorial")
+        seen_wp.add(wp_id)
+        seen_yt.add(youtube_id)
+        clean.append(item)
+    return clean
+
+
+def classify_pack_item(item: dict, post: dict | None, *, in_state: bool, include_review: bool) -> str:
+    if not in_state:
+        return "skip-not-imported"
+    if not isinstance(post, dict):
+        return "skip-missing"
+    if str(post.get("youtube_id") or "") != str(item.get("youtube_id") or ""):
+        return "skip-id-mismatch"
+    title = plain_text(str(post.get("title") or ""))
+    content = str(post.get("content") or "")
+    if texts_match(title, str(item.get("title") or "")) and content_unchanged(content, str(item.get("summary") or "")):
+        return "skip-already"
+    if item.get("requires_review") and not include_review:
+        return "skip-review"
+    if texts_match(title, str(item.get("original_title") or "")) and content_unchanged(
+        content, str(item.get("original_summary") or "")
+    ):
+        return "update"
+    return "skip-manual"
 
 
 def restore_body(item: dict) -> dict[str, str]:

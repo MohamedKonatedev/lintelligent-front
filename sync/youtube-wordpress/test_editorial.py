@@ -111,20 +111,127 @@ class EditorialTests(unittest.TestCase):
 
     def test_backfill_protects_manual_edits_and_other_sources(self) -> None:
         created = "2026-11-18T11:00:07"
-        post = {"title": "Titre brut", "date_gmt": created, "modified_gmt": created}
-        entry = {"source": "history", "wp_id": 10}
+        entry = {
+            "source": "history",
+            "wp_id": 10,
+            "youtube_title": "Titre brut",
+            "youtube_description": "Le ministre Vagondo confirme le dialogue politique avec les acteurs.",
+        }
+        post = {
+            "title": "Titre brut",
+            "content": "<p>Le ministre Vagondo confirme le dialogue politique avec les acteurs. Suite du sujet.</p>",
+            "date_gmt": created,
+            "modified_gmt": "2026-11-19T18:00:00",
+        }
         self.assertEqual(editorial.classify_backfill(entry, post, include_timer=False), "update")
-        manual = dict(post)
-        manual["modified_gmt"] = "2026-11-18T12:00:07"
+        manual = dict(post, title="Titre réécrit à la main")
         self.assertEqual(editorial.classify_backfill(entry, manual, include_timer=False), "skip-manual")
         self.assertEqual(
             editorial.classify_backfill({"source": "timer", "wp_id": 10}, post, include_timer=False),
             "skip-not-history",
         )
-        done = dict(entry)
-        done["editorial_applied_at"] = created
-        done["editorial_title"] = "Titre brut"
+        self.assertEqual(
+            editorial.classify_backfill({"source": "history", "wp_id": 10}, post, include_timer=False),
+            "skip-unverified",
+        )
+        done = dict(entry, editorial_applied_at=created, editorial_title="Titre brut")
         self.assertEqual(editorial.classify_backfill(done, post, include_timer=False), "skip-already")
+
+    def test_acronyms_and_proper_names_keep_their_case(self) -> None:
+        copy = editorial.fallback_editorial(
+            source(
+                youtube_title="FIF YACINE IDRISS DIALLO RÉÉLU AVEC 123 VOIX SUR 149",
+                youtube_description=(
+                    "Yacine Idriss Diallo a été réélu à la présidence de la Fédération ivoirienne "
+                    "de football (FIF). La CNPS, la NISA, la SOTRA et JT OFF sont cités dans le débat."
+                ),
+                show_name=None,
+            )
+        )
+        self.assertIn("FIF", copy.title)
+        self.assertIn("Yacine Idriss Diallo", copy.title)
+        self.assertNotIn("Fif", copy.title)
+        self.assertNotIn("yacine", copy.title)
+        self.assertNotIn("http", copy.summary.lower())
+        self.assertNotIn("abonnez", copy.summary.lower())
+
+    def test_invitee_uses_the_feminine_show_title(self) -> None:
+        copy = editorial.fallback_editorial(
+            source(
+                youtube_title="L'INVITÉE AVEC AMINATA TRAORÉ",
+                youtube_description="Aminata Traoré revient sur la rentrée scolaire et les familles.",
+                show_name="L’invité",
+            )
+        )
+        self.assertTrue(copy.title.startswith("L'invitée du 8 octobre 2026 avec Aminata Traoré"))
+
+    def test_known_shows_match_title_variants(self) -> None:
+        paired, _extras, _missing = sync.pair_emissions(
+            [
+                {"id": 3, "slug": "linvite", "name": "L’invité"},
+                {"id": 2, "slug": "a-vous-la-parole", "name": "À vous la parole"},
+                {"id": 7, "slug": "les-entretiens", "name": "Les Entretiens"},
+            ]
+        )
+        self.assertEqual(sync.match_emission("L'invitée avec Awa", paired).status, "matched")
+        self.assertEqual(sync.match_emission("à vous la parole", paired).emission.slug, "a-vous-la-parole")  # type: ignore[union-attr]
+        self.assertEqual(sync.match_emission("les entretiens du soir", paired).emission.slug, "les-entretiens")  # type: ignore[union-attr]
+
+    def test_api_error_uses_the_local_fallback(self) -> None:
+        settings = editorial.AiSettings(
+            url="https://example.invalid/v1/chat/completions",
+            model="gpt-4o-mini",
+            api_key="test-key",
+            timeout=1,
+        )
+        original = editorial.urllib.request.urlopen
+
+        def boom(*_args: object, **_kwargs: object) -> object:
+            raise editorial.urllib.error.URLError("indisponible")
+
+        editorial.urllib.request.urlopen = boom  # type: ignore[assignment]
+        try:
+            copy = editorial.compose_editorial(source(), settings)
+        finally:
+            editorial.urllib.request.urlopen = original
+        self.assertEqual(copy.method, "fallback")
+        self.assertTrue(copy.needs_review)
+        self.assertIn("IA", copy.note)
+
+    def test_validated_pack_skips_review_manual_and_unknown_posts(self) -> None:
+        item = {
+            "wp_id": 316,
+            "youtube_id": "3sXKeW4aAWo",
+            "original_title": "À VOUS LA PAROLE AVEC FOOD’S CO",
+            "original_summary": "À Béoumi, Sanogo Tahirou a fait le pari de la transformation locale.",
+            "title": "À vous la parole du 16 novembre 2026 avec Sanogo Tahirou",
+            "summary": "À Béoumi, Sanogo Tahirou présente l’histoire de FOOD’S CO et son impact local.",
+            "requires_review": True,
+        }
+        post = {
+            "title": item["original_title"],
+            "content": "<p>À Béoumi, Sanogo Tahirou a fait le pari de la transformation locale. Suite.</p>",
+            "youtube_id": "3sXKeW4aAWo",
+        }
+        self.assertEqual(editorial.classify_pack_item(item, post, in_state=True, include_review=False), "skip-review")
+        ready = dict(item, requires_review=False)
+        self.assertEqual(editorial.classify_pack_item(ready, post, in_state=True, include_review=False), "update")
+        self.assertEqual(
+            editorial.classify_pack_item(ready, dict(post, title="Titre modifié"), in_state=True, include_review=False),
+            "skip-manual",
+        )
+        self.assertEqual(editorial.classify_pack_item(ready, post, in_state=False, include_review=False), "skip-not-imported")
+        self.assertEqual(
+            editorial.classify_pack_item(ready, dict(post, youtube_id="aaaaaaaaaaa"), in_state=True, include_review=False),
+            "skip-id-mismatch",
+        )
+        pack = editorial.load_editorial_pack(
+            json.loads(Path(__file__).with_name("packs").joinpath("lintelligent_tv_87_replays_editorial.json").read_text(encoding="utf-8"))
+        )
+        self.assertEqual(len(pack), 87)
+        self.assertEqual(sum(1 for row in pack if row["requires_review"]), 6)
+        self.assertEqual(len({row["wp_id"] for row in pack}), 87)
+        self.assertEqual(len({row["youtube_id"] for row in pack}), 87)
 
     def test_restore_touches_only_title_and_content(self) -> None:
         body = editorial.restore_body(

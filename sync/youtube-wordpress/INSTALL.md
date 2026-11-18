@@ -159,34 +159,54 @@ Le titre WordPress et le contenu portent le texte affiché sur les pages. Le CPT
 
 Sans clé, une reformulation locale nettoie le titre et garde les phrases déjà présentes dans la description. Avec `YT_EDITORIAL_AI=1`, une seule requête est faite au moment de la création. Une réponse qui ajoute un nom ou une date absents des métadonnées est écartée. Si l'API échoue, la vidéo est quand même créée avec le secours local.
 
-Copier aussi `editorial.py` et `editorial_backfill.py` à côté de `yt_wp_sync.py`. Ne pas régénérer le fichier d'environnement : y ajouter seulement les variables nouvelles, vides tant que l'IA n'est pas voulue.
+Copier aussi `editorial.py`, `editorial_backfill.py` et le dossier `packs/` à côté de `yt_wp_sync.py`. Ne pas régénérer le fichier d'environnement : y ajouter seulement les variables nouvelles. `YT_EDITORIAL_AI` reste à `0` tant que la clé OpenAI n'est pas posée.
 
-La correction des vidéos déjà importées utilise un administrateur ou un éditeur, jamais `youtube-sync`. Elle ne lit que les identifiants présents dans `state.json` avec `source=history`. Les vidéos antérieures au synchroniseur n'y sont pas. Un contenu modifié plus de vingt minutes après sa création est laissé tel quel.
+Les 87 vidéos historiques reçoivent les textes du fichier validé, sans nouvelle génération. Le compte est un administrateur ou un éditeur, jamais `youtube-sync`. Une vidéo est laissée intacte si son titre ou son contenu n'est plus celui importé. Les six fiches `requires_review` sont seulement signalées.
 
-Dry-run, sans écriture et sans IA :
+```bash
+sudo cp sync/youtube-wordpress/yt_wp_sync.py \
+  sync/youtube-wordpress/editorial.py \
+  sync/youtube-wordpress/editorial_backfill.py \
+  /opt/lintelligent-yt-sync/
+sudo cp sync/youtube-wordpress/packs/lintelligent_tv_87_replays_editorial.json \
+  /var/lib/lintelligent-yt-sync/
+sudo cp -a /var/lib/lintelligent-yt-sync/state.json \
+  /var/lib/lintelligent-yt-sync/state.json.before-editorial
+```
+
+Dry-run, sans écriture :
 
 ```bash
 sudo -u yt-sync /usr/bin/python3 /opt/lintelligent-yt-sync/yt_wp_sync.py \
-  --editorial --dry-run \
+  --editorial-pack /var/lib/lintelligent-yt-sync/lintelligent_tv_87_replays_editorial.json \
+  --dry-run \
   --env-file /etc/lintelligent/youtube-sync.env \
   --report /var/lib/lintelligent-yt-sync/editorial-dry-run.json
 ```
 
-L'écriture, après validation, sauvegarde d'abord les anciens textes :
+Après validation du rapport, poser `YT_EDITORIAL_APPLY=1` et les identifiants `WP_EDITORIAL_USER` / `WP_EDITORIAL_APP_PASSWORD`, puis :
 
 ```bash
 sudo -u yt-sync /usr/bin/python3 /opt/lintelligent-yt-sync/yt_wp_sync.py \
-  --editorial --apply --with-ai \
+  --editorial-pack /var/lib/lintelligent-yt-sync/lintelligent_tv_87_replays_editorial.json \
+  --apply \
   --env-file /etc/lintelligent/youtube-sync.env
 ```
 
-`--apply` exige `YT_EDITORIAL_APPLY=1` et `WP_EDITORIAL_USER`. La restauration ne renvoie que le titre et le contenu :
+La commande écrit d'abord `editorial-backup-DATE.json` et une ligne par vidéo dans `editorial.log`. Elle ne change pas `import_after`. La restauration ne renvoie que le titre et le contenu :
 
 ```bash
 sudo -u yt-sync /usr/bin/python3 /opt/lintelligent-yt-sync/yt_wp_sync.py \
   --editorial-restore --dry-run \
   --backup /var/lib/lintelligent-yt-sync/editorial-backup-DATE.json \
   --env-file /etc/lintelligent/youtube-sync.env
+```
+
+Pour les vidéos suivantes, passer `YT_EDITORIAL_AI=1` et renseigner `YT_EDITORIAL_API_KEY` dans le même fichier. Le timer n'a pas à être recréé : au prochain passage il crée les vidéos manquantes avec un titre et un résumé, une seule fois. Contrôle :
+
+```bash
+systemctl status lintelligent-yt-sync.timer --no-pager
+journalctl -u lintelligent-yt-sync.service -n 80 --no-pager
 ```
 
 Le modèle `gpt-4o-mini` coûte de l'ordre d'un centime pour une centaine de vidéos courtes. Aucune génération n'est répétée à l'affichage du site ni à chaque passage du timer sur une vidéo déjà créée.
