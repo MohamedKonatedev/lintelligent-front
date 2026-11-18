@@ -237,5 +237,172 @@ class SafetyTests(unittest.TestCase):
         self.assertEqual(sync.plan_action(videos[0], set(), None).reason, "unverified-no-api")
 
 
+def catalog() -> list[sync.EmissionCategory]:
+    rows = [
+        (7, "les-entretiens", "Les Entretiens"),
+        (6, "le-debat", "Le Débat"),
+        (2, "a-vous-la-parole", "À vous la parole"),
+        (3, "linvite", "L’invité"),
+        (4, "la-quotidienne-du-sport", "La quotidienne du sport"),
+        (5, "la-revue-de-presse-grand-format", "La revue de presse grand format"),
+        (10, "lintelligent-club", "L'intelligent Club"),
+    ]
+    paired, extras, missing = sync.pair_emissions(
+        [{"id": term_id, "slug": slug, "name": name} for term_id, slug, name in rows]
+        + [{"id": 9, "slug": "actu-sport", "name": "Actu Sport"}, {"id": 1, "slug": "uncategorized", "name": "Uncategorized"}]
+    )
+    assert not missing
+    assert [row["slug"] for row in extras] == ["actu-sport"]
+    return paired
+
+
+class EmissionTests(unittest.TestCase):
+    def test_title_variants_use_live_term_ids(self) -> None:
+        emissions = catalog()
+        cases = {
+            "À VOUS LA PAROLE AVEC FOOD'S CO": (2, "a-vous-la-parole"),
+            "les  entretiens : special": (7, "les-entretiens"),
+            "L’INVITÉ AVEC BLANCHE MORO": (3, "linvite"),
+            "Le débat du 09 avril": (6, "le-debat"),
+            "La Revue de Presse Grand Format — 2 septembre": (5, "la-revue-de-presse-grand-format"),
+        }
+        for title, expected in cases.items():
+            match = sync.match_emission(title, emissions)
+            self.assertEqual(match.status, "matched", title)
+            assert match.emission is not None
+            self.assertEqual((match.emission.term_id, match.emission.slug), expected)
+
+    def test_unknown_and_ambiguous_titles_are_not_invented(self) -> None:
+        emissions = catalog()
+        unknown = sync.match_emission("LES COUPS DE LA VIE TOUR", emissions)
+        self.assertEqual(unknown.status, "unclassified")
+        self.assertIsNone(unknown.emission)
+        mixed = sync.match_emission("Le débat reçoit Les entretiens", emissions)
+        self.assertEqual(mixed.status, "ambiguous")
+        self.assertIsNone(mixed.emission)
+        self.assertCountEqual(mixed.candidate_slugs, ["le-debat", "les-entretiens"])
+
+    def test_category_is_attached_only_on_a_clear_match(self) -> None:
+        emissions = catalog()
+        video = sample_video(title="À vous la parole")
+        action = sync.with_category(
+            sync.plan_action(video, set(), datetime(2026, 1, 1, tzinfo=timezone.utc)),
+            sync.match_emission(video.title, emissions),
+        )
+        body = sync.build_post_body(video, ZoneInfo("Africa/Abidjan"), None, category_id=action.category_id)
+        self.assertEqual(body["categories"], [2])
+        plain = sync.build_post_body(video, ZoneInfo("Africa/Abidjan"), None)
+        self.assertNotIn("categories", plain)
+
+    def test_duplicate_is_not_updated(self) -> None:
+        video = sample_video()
+        action = sync.plan_action(video, {video.video_id}, None, respect_watermark=False)
+        self.assertEqual(action.decision, "skip")
+        self.assertEqual(action.reason, "duplicate")
+
+    def test_history_window_includes_18_november(self) -> None:
+        start, end = sync.history_window(ZoneInfo("Africa/Abidjan"), "2026-09-01", "2026-11-18")
+        self.assertEqual(start, datetime(2026, 9, 1, tzinfo=timezone.utc))
+        self.assertEqual(end, datetime(2026, 11, 19, tzinfo=timezone.utc))
+        self.assertLess(datetime(2026, 11, 18, 23, 59, tzinfo=timezone.utc), end)
+        self.assertLess(datetime(2026, 8, 31, 23, 59, tzinfo=timezone.utc), start)
+
+    def test_history_keeps_timer_watermark(self) -> None:
+        state = {"import_after": "2026-11-18T12:00:00Z", "bootstrapped_at": "2026-11-18T12:00:00Z", "synced": {}}
+        sync.remember_created(state, "iAkpq0dqTNs", 99, True, "history")
+        self.assertEqual(state["import_after"], "2026-11-18T12:00:00Z")
+        self.assertEqual(state["bootstrapped_at"], "2026-11-18T12:00:00Z")
+        self.assertEqual(state["synced"]["iAkpq0dqTNs"]["source"], "history")
+
+    def test_history_pagination_fails_closed_when_truncated(self) -> None:
+        pages = [
+            {"items": [playlist_item("aaaaaaaaaaa", "2026-11-18T11:00:07Z")], "nextPageToken": "MORE"},
+            {"items": [playlist_item("bbbbbbbbbbb", "2026-11-01T11:00:07Z")], "nextPageToken": "STILL"},
+        ]
+
+        class FakeHttp:
+            def __init__(self) -> None:
+                self.calls = 0
+
+            def request(self, method: str, url: str, headers: dict | None = None, body: bytes | None = None) -> sync.HttpResult:
+                page = pages[self.calls]
+                self.calls += 1
+                return sync.HttpResult(200, {}, json.dumps(page).encode())
+
+        with self.assertRaises(sync.SyncError) as caught:
+            list(
+                sync.iter_playlist_video_refs(
+                    FakeHttp(),  # type: ignore[arg-type]
+                    "key",
+                    "UU23",
+                    None,
+                    [0],
+                    1,
+                    not_before=datetime(2026, 9, 1, tzinfo=timezone.utc),
+                    not_after=datetime(2026, 11, 19, tzinfo=timezone.utc),
+                    strict=True,
+                )
+            )
+        self.assertIn("incomplète", str(caught.exception))
+
+    def test_history_walks_pages_until_the_start(self) -> None:
+        pages = [
+            {"items": [playlist_item("aaaaaaaaaaa", "2026-11-20T11:00:07Z")], "nextPageToken": "P2"},
+            {
+                "items": [
+                    playlist_item("bbbbbbbbbbb", "2026-11-18T11:00:07Z"),
+                    playlist_item("ccccccccccc", "2026-08-31T11:00:07Z"),
+                ],
+                "nextPageToken": "SHOULD-NOT-FETCH",
+            },
+        ]
+
+        class FakeHttp:
+            def __init__(self) -> None:
+                self.calls = 0
+
+            def request(self, method: str, url: str, headers: dict | None = None, body: bytes | None = None) -> sync.HttpResult:
+                page = pages[self.calls]
+                self.calls += 1
+                return sync.HttpResult(200, {}, json.dumps(page).encode())
+
+        http = FakeHttp()
+        found = list(
+            sync.iter_playlist_video_refs(
+                http,  # type: ignore[arg-type]
+                "key",
+                "UU23",
+                None,
+                [0],
+                40,
+                not_before=datetime(2026, 9, 1, tzinfo=timezone.utc),
+                not_after=datetime(2026, 11, 19, tzinfo=timezone.utc),
+                strict=True,
+            )
+        )
+        self.assertEqual([item[0] for item in found], ["bbbbbbbbbbb"])
+        self.assertEqual(http.calls, 2)
+
+    def test_history_without_api_key_does_not_publish(self) -> None:
+        saved = os.environ.get("YOUTUBE_API_KEY")
+        os.environ.pop("YOUTUBE_API_KEY", None)
+        try:
+            with tempfile.TemporaryDirectory() as tmp:
+                code = sync.main(["--history", "--dry-run", "--state-dir", tmp, "--report", str(Path(tmp) / "report.json")])
+                self.assertEqual(code, sync.EXIT_CONFIG)
+                self.assertFalse((Path(tmp) / "report.json").exists())
+                self.assertFalse((Path(tmp) / "state.json").exists())
+        finally:
+            if saved is not None:
+                os.environ["YOUTUBE_API_KEY"] = saved
+
+
+def playlist_item(video_id: str, published: str) -> dict[str, object]:
+    return {
+        "contentDetails": {"videoId": video_id, "videoPublishedAt": published},
+        "snippet": {"title": "Titre", "publishedAt": published},
+    }
+
+
 if __name__ == "__main__":
     unittest.main()

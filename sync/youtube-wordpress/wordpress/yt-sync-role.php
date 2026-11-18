@@ -11,6 +11,8 @@
  * pour créer une vidéo. Ce fichier les accorde, puis les enferme :
  * - REST limité aux routes de lecture et de création des videos, au téléversement
  *   des médias et à GET /users/me ;
+ * - attribution d'une catégorie déjà existante à une vidéo nouvellement créée ;
+ * - aucune création, modification ou suppression de catégorie ;
  * - aucune mise à jour d'une vidéo existante ;
  * - aucun autre type (articles, pages, emissions, live, programmation) ;
  * - suppression limitée à ses propres fichiers, pour retirer une miniature orpheline ;
@@ -161,11 +163,18 @@ function lintelligent_yt_sync_map_meta_cap($caps, $cap, $user_id, $args) {
         'delete_video',
         'delete_others_videos',
         'delete_published_videos',
-        'assign_term',
         'edit_term',
         'delete_term',
         'manage_terms',
     );
+    if ($cap === 'assign_term') {
+        $term_id = (!empty($args[0]) && is_numeric($args[0])) ? (int) $args[0] : 0;
+        $term = $term_id > 0 ? get_term($term_id) : null;
+        if ($term instanceof WP_Term && $term->taxonomy === 'category') {
+            return array('read');
+        }
+        return array('do_not_allow');
+    }
     if (in_array($cap, $denied, true)) {
         return array('do_not_allow');
     }

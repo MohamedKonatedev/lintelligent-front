@@ -20,12 +20,13 @@ import os
 import re
 import sys
 import time
+import unicodedata
 import urllib.error
 import urllib.request
 import xml.etree.ElementTree as ET
 from contextlib import contextmanager
-from dataclasses import dataclass, field
-from datetime import datetime, timezone
+from dataclasses import dataclass, field, replace
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Iterator
 from zoneinfo import ZoneInfo
@@ -51,6 +52,28 @@ MAX_PLAYLIST_PAGES = 10
 PLAYLIST_PAGE_SIZE = 50
 VIDEOS_BATCH = 50
 THUMB_MAX_BYTES = 5_000_000
+HISTORY_FROM = "2026-09-01"
+HISTORY_TO = "2026-11-18"
+HISTORY_MAX_PAGES = 40
+# Slugs des pages /programmes du frontend. Les IDs viennent de l'API WordPress.
+EMISSION_PAGE_SLUGS = (
+    "les-entretiens",
+    "le-debat",
+    "a-vous-la-parole",
+    "linvite",
+    "la-quotidienne-du-sport",
+    "la-revue-de-presse-grand-format",
+    "lintelligent-club",
+)
+PROGRAMME_TITLES = {
+    "les-entretiens": "Les Entretiens",
+    "le-debat": "Le Débat",
+    "a-vous-la-parole": "À vous la parole",
+    "linvite": "L'Invité",
+    "la-quotidienne-du-sport": "La Quotidienne du Sport",
+    "la-revue-de-presse-grand-format": "La Revue de Presse Grand Format",
+    "lintelligent-club": "L'Intelligent Club",
+}
 EXIT_OK = 0
 EXIT_ERROR = 1
 EXIT_CONFIG = 2
@@ -144,15 +167,34 @@ class NormalizedVideo:
 
 
 @dataclass(frozen=True)
+class EmissionCategory:
+    term_id: int
+    slug: str
+    names: tuple[str, ...]
+
+
+@dataclass(frozen=True)
+class TitleMatch:
+    status: str
+    emission: EmissionCategory | None = None
+    candidate_slugs: tuple[str, ...] = ()
+
+
+@dataclass(frozen=True)
 class Action:
     video: NormalizedVideo
     decision: str
     reason: str
+    category_id: int | None = None
+    category_slug: str | None = None
+    category_name: str | None = None
+    category_status: str = ""
+    category_candidates: tuple[str, ...] = ()
 
     def payload_preview(self, zone: ZoneInfo) -> dict[str, object] | None:
         if self.decision != "create" and self.reason not in {"bootstrap-required", "unverified-no-api"}:
             return None
-        body = build_post_body(self.video, zone, featured_media=None)
+        body = build_post_body(self.video, zone, featured_media=None, category_id=self.category_id)
         content = body.get("content")
         if isinstance(content, str) and len(content) > 280:
             body["content"] = content[:280] + "…"
@@ -180,6 +222,7 @@ class RunReport:
     summary: dict[str, int] = field(default_factory=dict)
     decisions: list[dict[str, object]] = field(default_factory=list)
     notes: list[str] = field(default_factory=list)
+    history: dict[str, object] | None = None
 
     def to_json(self) -> dict[str, object]:
         return {
@@ -200,6 +243,7 @@ class RunReport:
             "quota_units_estimate": self.quota_units_estimate,
             "summary": self.summary,
             "notes": self.notes,
+            "history": self.history,
             "decisions": self.decisions,
         }
 
@@ -283,6 +327,161 @@ def iso8601_duration_to_display(raw: str | None) -> str | None:
     return f"{minutes}:{seconds:02d}"
 
 
+def normalize_label(value: str) -> str:
+    text = unicodedata.normalize("NFKD", value)
+    text = "".join(char for char in text if not unicodedata.combining(char))
+    for apostrophe in ("'", "’", "‘", "`", "´", "ʼ"):
+        text = text.replace(apostrophe, "'")
+    text = text.lower()
+    text = re.sub(r"[^a-z0-9]+", " ", text)
+    return " ".join(text.split())
+
+
+def match_emission(title: str, emissions: list[EmissionCategory]) -> TitleMatch:
+    padded = f" {normalize_label(title)} "
+    hits: list[EmissionCategory] = []
+    for emission in emissions:
+        labels = [normalize_label(name) for name in emission.names]
+        labels = [label for label in dict.fromkeys(labels) if label]
+        if any(f" {label} " in padded for label in labels):
+            hits.append(emission)
+    if not hits:
+        return TitleMatch("unclassified")
+    if len(hits) == 1:
+        return TitleMatch("matched", hits[0], (hits[0].slug,))
+
+    def longest(emission: EmissionCategory) -> int:
+        return max(len(normalize_label(name)) for name in emission.names)
+
+    ordered = sorted(hits, key=longest, reverse=True)
+    top_labels = [normalize_label(name) for name in ordered[0].names]
+    others_inside_top = all(
+        any(other and any(other in label for label in top_labels) for other in (normalize_label(name) for name in emission.names))
+        for emission in ordered[1:]
+    )
+    if others_inside_top and longest(ordered[0]) > longest(ordered[1]):
+        return TitleMatch("matched", ordered[0], tuple(emission.slug for emission in ordered))
+    return TitleMatch("ambiguous", None, tuple(emission.slug for emission in ordered))
+
+
+def pair_emissions(categories: list[dict]) -> tuple[list[EmissionCategory], list[dict], list[str]]:
+    by_slug = {str(row.get("slug") or ""): row for row in categories if isinstance(row, dict)}
+    paired: list[EmissionCategory] = []
+    missing: list[str] = []
+    for slug in EMISSION_PAGE_SLUGS:
+        row = by_slug.get(slug)
+        term_id = row.get("id") if isinstance(row, dict) else None
+        name = str(row.get("name") or "").strip() if isinstance(row, dict) else ""
+        if not isinstance(term_id, int) or term_id < 1 or not name:
+            missing.append(slug)
+            continue
+        names = [name]
+        programme = PROGRAMME_TITLES.get(slug, "")
+        if programme and normalize_label(programme) not in {normalize_label(item) for item in names}:
+            names.append(programme)
+        paired.append(EmissionCategory(term_id=term_id, slug=slug, names=tuple(names)))
+    extras = [
+        row
+        for row in categories
+        if isinstance(row, dict)
+        and str(row.get("slug") or "") not in EMISSION_PAGE_SLUGS
+        and str(row.get("slug") or "") != "uncategorized"
+    ]
+    return paired, extras, missing
+
+
+def with_category(action: Action, match: TitleMatch) -> Action:
+    emission = match.emission if match.status == "matched" else None
+    return replace(
+        action,
+        category_id=emission.term_id if emission else None,
+        category_slug=emission.slug if emission else None,
+        category_name=emission.names[0] if emission else None,
+        category_status=match.status,
+        category_candidates=match.candidate_slugs,
+    )
+
+
+def history_window(zone: ZoneInfo, start_day: str, end_day: str) -> tuple[datetime, datetime]:
+    start = datetime.fromisoformat(start_day).replace(tzinfo=zone).astimezone(timezone.utc)
+    end_day_value = datetime.fromisoformat(end_day).replace(tzinfo=zone)
+    end_exclusive = (end_day_value + timedelta(days=1)).astimezone(timezone.utc)
+    if end_exclusive <= start:
+        raise SyncError("la fin de la période précède son début", EXIT_CONFIG)
+    return start, end_exclusive
+
+
+def remember_created(state: dict, video_id: str, wp_id: int, linked: bool, source: str) -> None:
+    """Ajoute un identifiant créé sans toucher au repère du timer."""
+    import_after = state.get("import_after")
+    bootstrapped_at = state.get("bootstrapped_at")
+    synced = state.setdefault("synced", {})
+    if not isinstance(synced, dict):
+        raise SyncError("fichier d'état illisible", EXIT_CONFIG)
+    synced[video_id] = {
+        "wp_id": wp_id,
+        "created_at": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
+        "lien_video_ok": linked,
+        "source": source,
+    }
+    if state.get("import_after") != import_after or state.get("bootstrapped_at") != bootstrapped_at:
+        raise SyncError("le repère automatique a été modifié", EXIT_ERROR)
+
+
+def summarize_history(actions: list[Action]) -> dict[str, object]:
+    by_emission: dict[str, dict[str, object]] = {}
+    unclassified: list[dict[str, str]] = []
+    ambiguous: list[dict[str, object]] = []
+    excluded: dict[str, int] = {}
+    for action in actions:
+        if action.reason == "duplicate":
+            bucket_key = "already_present"
+        elif action.decision == "create":
+            bucket_key = "to_import"
+        else:
+            excluded[action.reason] = excluded.get(action.reason, 0) + 1
+            continue
+        if action.category_status == "matched" and action.category_slug:
+            bucket = by_emission.setdefault(
+                action.category_slug,
+                {
+                    "slug": action.category_slug,
+                    "name": action.category_name,
+                    "id": action.category_id,
+                    "to_import": 0,
+                    "already_present": 0,
+                },
+            )
+            bucket[bucket_key] = int(bucket[bucket_key]) + 1
+        elif action.category_status == "unclassified":
+            unclassified.append(
+                {
+                    "video_id": action.video.video_id,
+                    "title": action.video.title,
+                    "action": bucket_key,
+                }
+            )
+        elif action.category_status == "ambiguous":
+            ambiguous.append(
+                {
+                    "video_id": action.video.video_id,
+                    "title": action.video.title,
+                    "candidates": list(action.category_candidates),
+                    "action": bucket_key,
+                }
+            )
+    return {
+        "youtube_in_window": len(actions),
+        "already_in_wordpress": sum(1 for action in actions if action.reason == "duplicate"),
+        "to_import": sum(1 for action in actions if action.decision == "create"),
+        "excluded": excluded,
+        "by_emission": list(by_emission.values()),
+        "unclassified": unclassified,
+        "ambiguous": ambiguous,
+        "import_after_unchanged": True,
+    }
+
+
 def description_to_html(description: str) -> str:
     text = description.replace("\r\n", "\n").replace("\r", "\n").strip()
     if len(text) > 10000:
@@ -311,6 +510,7 @@ def build_post_body(
     video: NormalizedVideo,
     zone: ZoneInfo,
     featured_media: int | None,
+    category_id: int | None = None,
 ) -> dict[str, object]:
     acf: dict[str, str] = {
         "lien_video": canonical_watch_url(video.video_id),
@@ -329,6 +529,10 @@ def build_post_body(
         body["content"] = content
     if featured_media is not None:
         body["featured_media"] = featured_media
+    if category_id is not None:
+        if category_id < 1:
+            raise SyncError("identifiant de catégorie invalide", EXIT_CONFIG)
+        body["categories"] = [category_id]
     return body
 
 
@@ -357,15 +561,17 @@ def plan_action(
     video: NormalizedVideo,
     existing_ids: set[str],
     import_after: datetime | None,
+    *,
+    respect_watermark: bool = True,
 ) -> Action:
     if video.video_id in existing_ids:
         return Action(video, "skip", "duplicate")
-    if import_after is not None and video.published_at <= import_after:
+    if respect_watermark and import_after is not None and video.published_at <= import_after:
         return Action(video, "skip", "before-watermark")
     reason = classify(video)
     if reason:
         return Action(video, "skip", reason)
-    if import_after is None:
+    if respect_watermark and import_after is None:
         return Action(video, "skip", "bootstrap-required")
     return Action(video, "create", "eligible")
 
@@ -573,6 +779,39 @@ def fetch_existing_youtube_ids(
     return total, ids
 
 
+def fetch_wp_categories(http: HttpClient, origin: str) -> list[dict]:
+    rows: list[dict] = []
+    page = 1
+    total_pages = 1
+    while page <= total_pages:
+        result = http.request(
+            "GET",
+            f"{wp_api_base(origin)}/categories?per_page=100&page={page}&_fields=id,name,slug,count",
+        )
+        if result.status != 200:
+            raise SyncError(f"catégories WordPress indisponibles (HTTP {result.status})", EXIT_WP)
+        payload = result.json()
+        if not isinstance(payload, list):
+            raise SyncError("réponse des catégories inattendue", EXIT_WP)
+        rows.extend(row for row in payload if isinstance(row, dict))
+        if page == 1:
+            total_pages = max(1, int(result.header("X-WP-TotalPages") or "1"))
+        page += 1
+        if page > 20:
+            raise SyncError("pagination des catégories trop longue", EXIT_WP)
+    return rows
+
+
+def fetch_emission_catalog(
+    http: HttpClient, origin: str
+) -> tuple[list[EmissionCategory], list[dict], list[str]]:
+    return pair_emissions(fetch_wp_categories(http, origin))
+
+
+def annotate_categories(actions: list[Action], emissions: list[EmissionCategory]) -> list[Action]:
+    return [with_category(action, match_emission(action.video.title, emissions)) for action in actions]
+
+
 def assert_quota_safe(url: str) -> None:
     if "/youtube/v3/search" in url:
         raise SyncError("search.list est interdit (quota)")
@@ -625,13 +864,19 @@ def iter_playlist_video_refs(
     import_after: datetime | None,
     units: list[int],
     max_pages: int,
+    *,
+    not_before: datetime | None = None,
+    not_after: datetime | None = None,
+    strict: bool = False,
 ) -> Iterator[tuple[str, datetime, str]]:
     """Parcourt la playlist des mises en ligne, de la plus récente vers la plus ancienne.
 
-    Sans repère, une seule page est lue pour ne pas balayer l'historique.
+    Le timer s'arrête au repère import_after. L'import historique lit toutes les
+    pages jusqu'au début de la période et échoue s'il est tronqué.
     """
     page_token = ""
-    limit = max(1, min(max_pages, MAX_PLAYLIST_PAGES))
+    limit = max(1, max_pages if strict else min(max_pages, MAX_PLAYLIST_PAGES))
+    reached_older = False
     for page_index in range(limit):
         url = (
             f"{API_ROOT}/playlistItems?part=contentDetails,snippet&playlistId={playlist_id}"
@@ -640,7 +885,6 @@ def iter_playlist_video_refs(
         if page_token:
             url += "&pageToken=" + page_token
         payload = api_get(http, url, units)
-        reached_watermark = False
         for item in payload.get("items") or []:
             details = item.get("contentDetails") or {}
             snippet = item.get("snippet") or {}
@@ -650,17 +894,27 @@ def iter_playlist_video_refs(
                 continue
             published = parse_rfc3339(str(published_raw))
             if import_after is not None and published <= import_after:
-                reached_watermark = True
+                reached_older = True
+                continue
+            if not_after is not None and published >= not_after:
+                continue
+            if not_before is not None and published < not_before:
+                reached_older = True
                 continue
             yield video_id, published, str(snippet.get("title") or "")
         page_token = str(payload.get("nextPageToken") or "")
-        if reached_watermark or not page_token:
+        if reached_older or not page_token:
             return
-        if page_index == limit - 1 and page_token and import_after is not None:
+        if page_index == limit - 1 and page_token and not strict:
             LOG.warning(
                 "file YouTube tronquée après %s pages ; le prochain passage reprendra le reliquat",
                 limit,
             )
+    if strict and page_token and not reached_older:
+        raise SyncError(
+            "playlist incomplète avant le début de la période ; aucune vidéo n'est créée",
+            EXIT_ERROR,
+        )
 
 
 def fetch_video_details(
@@ -947,6 +1201,14 @@ def build_report_decisions(actions: list[Action], zone: ZoneInfo, thumb: dict[st
         }
         if action.video.duration_display:
             row["duree"] = action.video.duration_display
+        if action.category_status:
+            row["category_status"] = action.category_status
+        if action.category_slug:
+            row["category_slug"] = action.category_slug
+            row["category_id"] = action.category_id
+            row["category_name"] = action.category_name
+        if action.category_candidates:
+            row["category_candidates"] = list(action.category_candidates)
         if action.video.video_id == newest_preview:
             preview = action.payload_preview(zone)
             if preview:
@@ -1098,6 +1360,8 @@ def execute(args: argparse.Namespace) -> int:
         LOG.warning("clé YouTube absente : durée, confidentialité et directs non vérifiés, publication impossible")
     actions = [plan_action(video, existing_ids, import_after) for video in videos]
     actions.sort(key=lambda action: action.video.published_at)
+    emissions, extras, missing = fetch_emission_catalog(http, origin)
+    actions = annotate_categories(actions, emissions)
     summary = summarize(actions)
     thumb = None
     if args.dry_run or not args.apply:
@@ -1139,6 +1403,16 @@ def execute(args: argparse.Namespace) -> int:
             "Le flux public ne fournit pas la durée, le statut privé/public ni l'état du direct. "
             "Ces vidéos restent non publiables tant que l'API YouTube ne les a pas vérifiées."
         )
+    if missing:
+        report.notes.append("pages d'émission sans catégorie WordPress : " + ", ".join(missing))
+    if extras:
+        report.notes.append(
+            "catégories WordPress non liées à une page d'émission : "
+            + ", ".join(str(row.get("slug")) for row in extras)
+        )
+    unclassified = [action.video.title for action in actions if action.decision == "create" and action.category_status == "unclassified"]
+    if unclassified:
+        report.notes.append(f"{len(unclassified)} vidéo(s) à créer resteront Non classé.")
     report.decisions = build_report_decisions(actions, zone, thumb)
 
     created = 0
@@ -1164,15 +1438,16 @@ def execute(args: argparse.Namespace) -> int:
                 try:
                     _url, image = download_jpeg(http, action.video.thumbnail_urls)
                     media_id = upload_thumbnail(http, origin, auth, action.video, image)
-                    body = build_post_body(action.video, zone, featured_media=media_id)
+                    body = build_post_body(
+                        action.video,
+                        zone,
+                        featured_media=media_id,
+                        category_id=action.category_id,
+                    )
                     created_post = create_video_post(http, origin, auth, body)
                     wp_id = int(created_post["id"])
                     linked = confirm_link(http, origin, auth, wp_id, action.video.video_id, created_post)
-                    state.setdefault("synced", {})[action.video.video_id] = {
-                        "wp_id": wp_id,
-                        "created_at": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
-                        "lien_video_ok": linked,
-                    }
+                    remember_created(state, action.video.video_id, wp_id, linked, "timer")
                     save_state(state_path, state)
                     locked_ids.add(action.video.video_id)
                     created += 1
@@ -1216,6 +1491,167 @@ def execute(args: argparse.Namespace) -> int:
     return EXIT_OK
 
 
+def execute_history(args: argparse.Namespace) -> int:
+    """Import unique d'une période. Ne modifie pas import_after."""
+    env = env_settings()
+    channel_id = env.get("YOUTUBE_CHANNEL_ID") or DEFAULT_CHANNEL_ID
+    origin = (env.get("WP_BASE_URL") or DEFAULT_WP_BASE).rstrip("/")
+    zone = ZoneInfo(env.get("YT_SYNC_TIMEZONE") or DEFAULT_TIMEZONE)
+    start, end_exclusive = history_window(zone, args.history_from, args.history_to)
+    api_key = env.get("YOUTUBE_API_KEY") or ""
+    if not api_key:
+        raise SyncError(
+            "l'import historique exige YOUTUBE_API_KEY : le flux de 15 entrées ne couvre pas la période",
+            EXIT_CONFIG,
+        )
+    state_dir_raw = str(args.state_dir or env.get("YT_SYNC_STATE_DIR") or "")
+    state: dict = {}
+    if state_dir_raw:
+        state = load_state(state_paths(Path(state_dir_raw))[0])
+    preserved_after = state.get("import_after")
+    if args.apply:
+        gate_errors = []
+        if env.get("YT_SYNC_ENABLED") != "1":
+            gate_errors.append("YT_SYNC_ENABLED doit valoir 1")
+        if not env.get("WP_USER") or not env.get("WP_APP_PASSWORD"):
+            gate_errors.append("WP_USER et WP_APP_PASSWORD sont requis")
+        if not preserved_after:
+            gate_errors.append("import_after absent : l'historique ne crée pas le repère du timer")
+        if gate_errors:
+            for item in gate_errors:
+                LOG.error("%s", item)
+            raise SyncError("import historique refusé", EXIT_CONFIG)
+    http = HttpClient(allow_write=bool(args.apply))
+    auth = None
+    if env.get("WP_USER") and env.get("WP_APP_PASSWORD"):
+        auth = basic_auth_header(env["WP_USER"], env["WP_APP_PASSWORD"])
+    emissions, extras, missing = fetch_emission_catalog(http, origin)
+    if missing and args.apply:
+        raise SyncError("catalogue d'émissions incomplet : " + ", ".join(missing), EXIT_CONFIG)
+    wp_total, existing_ids = fetch_existing_youtube_ids(http, origin, auth if args.apply else None)
+    existing_ids |= known_ids_from_state(state)
+    units = [0]
+    playlist_id, snippet = fetch_uploads_playlist(http, api_key, channel_id, units)
+    refs = list(
+        iter_playlist_video_refs(
+            http,
+            api_key,
+            playlist_id,
+            None,
+            units,
+            HISTORY_MAX_PAGES,
+            not_before=start,
+            not_after=end_exclusive,
+            strict=True,
+        )
+    )
+    unknown = [video_id for video_id, _published, _title in refs if video_id not in existing_ids]
+    details = {video.video_id: video for video in fetch_video_details(http, api_key, unknown, units)}
+    videos: list[NormalizedVideo] = []
+    for video_id, published, title in refs:
+        if video_id in details:
+            videos.append(details[video_id])
+        elif video_id in existing_ids:
+            videos.append(known_stub(video_id, published, title))
+        else:
+            LOG.info("fiche YouTube indisponible, ignorée : %s", video_id)
+    actions = [
+        plan_action(video, existing_ids, None, respect_watermark=False)
+        for video in videos
+    ]
+    actions = annotate_categories(actions, emissions)
+    actions.sort(key=lambda action: action.video.published_at)
+    history = summarize_history(actions)
+    history["from"] = start.strftime("%Y-%m-%dT%H:%M:%SZ")
+    history["to_inclusive"] = args.history_to
+    history["timezone"] = str(zone)
+    history["import_after"] = preserved_after
+    history["catalog_missing"] = missing
+    history["categories_without_programme"] = [
+        {"id": row.get("id"), "slug": row.get("slug"), "name": row.get("name")} for row in extras
+    ]
+    report = RunReport(
+        mode="history-apply" if args.apply else "history-dry-run",
+        writes=False,
+        channel_id=channel_id,
+        wp_base_url=origin,
+        source="youtube-data-api",
+        api_key_present=True,
+        bootstrap_present=bool(state.get("bootstrapped_at")),
+        import_after=str(preserved_after) if preserved_after else None,
+        watermark_simulated=False,
+        wp_video_count=wp_total,
+        wp_youtube_ids=len(existing_ids),
+        feed_channel_title=str(snippet.get("title") or "") or None,
+        quota_units_estimate=units[0],
+        summary=summarize(actions),
+        history=history,
+        notes=[
+            "Le repère import_after du timer n'est pas modifié.",
+            "Les vidéos privées, non répertoriées, programmées, en direct ou non intégrables sont exclues.",
+        ],
+    )
+    if missing:
+        report.notes.append("pages d'émission sans catégorie : " + ", ".join(missing))
+    report.decisions = build_report_decisions(actions, zone, None)
+    created = 0
+    if args.apply:
+        if not state_dir_raw or auth is None:
+            raise SyncError("dossier d'état et compte WordPress requis", EXIT_CONFIG)
+        state_path, lock_path = state_paths(Path(state_dir_raw))
+        eligible = [action for action in actions if action.decision == "create"]
+        with exclusive_lock(lock_path):
+            state = load_state(state_path)
+            if state.get("import_after") != preserved_after:
+                raise SyncError("import_after a changé pendant l'import", EXIT_ERROR)
+            _total, locked_ids = fetch_existing_youtube_ids(http, origin, auth)
+            locked_ids |= known_ids_from_state(state)
+            for action in eligible:
+                if action.video.video_id in locked_ids:
+                    continue
+                media_id = None
+                try:
+                    _url, image = download_jpeg(http, action.video.thumbnail_urls)
+                    media_id = upload_thumbnail(http, origin, auth, action.video, image)
+                    body = build_post_body(
+                        action.video,
+                        zone,
+                        featured_media=media_id,
+                        category_id=action.category_id if action.category_status == "matched" else None,
+                    )
+                    created_post = create_video_post(http, origin, auth, body)
+                    wp_id = int(created_post["id"])
+                    linked = confirm_link(http, origin, auth, wp_id, action.video.video_id, created_post)
+                    remember_created(state, action.video.video_id, wp_id, linked, "history")
+                    if state.get("import_after") != preserved_after:
+                        raise SyncError("import_after a été modifié", EXIT_ERROR)
+                    save_state(state_path, state)
+                    locked_ids.add(action.video.video_id)
+                    created += 1
+                    report.writes = True
+                    LOG.info("historique créé wp_id=%s youtube=%s", wp_id, action.video.video_id)
+                except Exception:
+                    if media_id is not None:
+                        delete_media(http, origin, auth, media_id)
+                    raise
+        report.summary["created"] = created
+    if args.report:
+        report_path = Path(args.report)
+        report_path.parent.mkdir(parents=True, exist_ok=True)
+        report_path.write_text(json.dumps(report.to_json(), ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+    json.dump(report.to_json(), sys.stdout, ensure_ascii=False, indent=2)
+    sys.stdout.write("\n")
+    LOG.info(
+        "historique mode=%s vues=%s deja=%s a_creer=%s import_after=%s",
+        report.mode,
+        history["youtube_in_window"],
+        history["already_in_wordpress"],
+        history["to_import"],
+        preserved_after,
+    )
+    return EXIT_OK
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description="Synchronise les nouvelles vidéos YouTube vers WordPress (création seule).")
     mode = parser.add_mutually_exclusive_group()
@@ -1229,6 +1665,9 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--force-bootstrap", action="store_true", help="Remplace un bootstrap existant.")
     parser.add_argument("--report", type=Path, help="Chemin du rapport JSON.")
     parser.add_argument("--verbose", action="store_true")
+    parser.add_argument("--history", action="store_true", help="Import unique d'une période, sans changer import_after.")
+    parser.add_argument("--history-from", default=HISTORY_FROM, help="Jour de début inclus, heure d'Abidjan.")
+    parser.add_argument("--history-to", default=HISTORY_TO, help="Jour de fin inclus, heure d'Abidjan.")
     return parser
 
 
@@ -1244,8 +1683,12 @@ def main(argv: list[str] | None = None) -> int:
             return run_bootstrap(args, env_settings())
         if args.auth_check:
             return run_auth_check(env_settings())
+        if args.history and args.bootstrap:
+            raise SyncError("historique et bootstrap sont incompatibles", EXIT_CONFIG)
         if not args.apply:
             args.dry_run = True
+        if args.history:
+            return execute_history(args)
         return execute(args)
     except SyncError as exc:
         LOG.error("%s", redact(str(exc), secrets))

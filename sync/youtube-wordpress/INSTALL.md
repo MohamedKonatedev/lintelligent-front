@@ -113,6 +113,42 @@ Journaux :
 journalctl -u lintelligent-yt-sync.service -n 80 --no-pager
 ```
 
-Un dépassement de quota YouTube termine avec le code 75, sans avancer de publication. Le passage suivant reprend les vidéos non créées. Cinq créations maximum par passage.
+Un dépassement de quota YouTube termine avec le code 75, sans avancer de publication. Le passage suivant reprend les vidéos non créées. Cinq créations maximum par passage du timer.
 
 Sauvegarde utile : `/var/lib/lintelligent-yt-sync/state.json`. S'il disparaît, les vidéos encore publiques restent protégées par `lien_video`. Une vidéo passée en brouillon après coup ne l'est plus, si l'état a aussi été perdu.
+
+## Import historique du 1er septembre au 18 novembre 2026
+
+Cette commande est indépendante du timer. Elle ne modifie ni `import_after` ni `bootstrapped_at`. Elle parcourt toute la playlist des mises en ligne, pas seulement les 15 entrées du flux public. Sans clé API, elle s'arrête et ne crée rien.
+
+Avant toute écriture, sauvegarder l'état :
+
+```bash
+sudo cp -a /var/lib/lintelligent-yt-sync/state.json \
+  /var/lib/lintelligent-yt-sync/state.json.before-history
+```
+
+Reprise : recopier ce fichier à la place de `state.json` si l'import doit être annulé côté repères locaux. Les vidéos déjà créées dans WordPress ne sont pas supprimées par cette copie ; elles restent dédoublonnées par `lien_video`.
+
+Dry-run, aucune publication :
+
+```bash
+sudo -u yt-sync /usr/bin/python3 /opt/lintelligent-yt-sync/yt_wp_sync.py \
+  --history --dry-run \
+  --history-from 2026-09-01 --history-to 2026-11-18 \
+  --env-file /etc/lintelligent/youtube-sync.env \
+  --report /var/lib/lintelligent-yt-sync/history-dry-run.json
+```
+
+Le rapport indique le total YouTube de la période, les vidéos déjà présentes, le reste à importer, la répartition par émission et les titres non classés ou ambigus. Une correspondance claire reçoit l'identifiant réel de la catégorie. Les autres restent « Non classé ». Aucune émission n'est inventée.
+
+L'écriture n'est lancée qu'après validation de ce dry-run, avec le fichier d'environnement déjà en place. Ne pas le régénérer.
+
+```bash
+sudo -u yt-sync /usr/bin/python3 /opt/lintelligent-yt-sync/yt_wp_sync.py \
+  --history --apply \
+  --history-from 2026-09-01 --history-to 2026-11-18 \
+  --env-file /etc/lintelligent/youtube-sync.env
+```
+
+Le classement par titre s'applique aussi aux vidéos créées ensuite par le timer. Le rôle `yt_sync` peut seulement rattacher une catégorie existante au moment de la création. Il ne peut ni créer ni supprimer une catégorie, ni modifier une vidéo déjà publiée.
