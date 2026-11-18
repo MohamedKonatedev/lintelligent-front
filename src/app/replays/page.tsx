@@ -16,13 +16,15 @@ function formatDate(date: string) {
   }).format(new Date(date));
 }
 
+export const dynamic = "force-dynamic";
+
 export const metadata = {
   title: "Replays | L'Intelligent TV",
   description: "Retrouvez tous les replays de L'Intelligent TV.",
 };
 
 export default async function ReplaysPage() {
-  const videos = await getAllVideos(80);
+  const videos = await getAllVideos(100);
 
   const programEntries = [
     "les-entretiens",
@@ -48,12 +50,22 @@ export default async function ReplaysPage() {
     })
   );
 
+  const reportages = await getCategoryBySlug("reportages");
+  if (reportages) {
+    categories.push({
+      slug: reportages.slug,
+      id: reportages.id,
+      title: reportages.name,
+      accent: "#e21a23",
+    });
+  }
+
   const serializedVideos = videos.map((video: any) => ({
     id: video.id,
     slug: video.slug,
     link: video.link || "#",
     title: video.title?.rendered || "",
-    excerpt: stripHtml(video.excerpt?.rendered || ""),
+    excerpt: stripHtml(video.excerpt?.rendered || video.content?.rendered || ""),
     date: formatDate(video.date),
     image: getReplayCardImage(video) || "/programs/les-entretiens-home-square.jpg",
     categories: Array.isArray(video.categories) ? video.categories : [],

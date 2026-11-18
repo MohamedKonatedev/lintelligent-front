@@ -18,7 +18,7 @@ type PageProps = {
   }>;
 };
 
-export const revalidate = 3600;
+export const dynamic = "force-dynamic";
 
 export async function generateStaticParams() {
   const slugs = await getAllVideoSlugs();

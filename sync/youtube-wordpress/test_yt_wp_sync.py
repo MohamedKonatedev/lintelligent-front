@@ -294,6 +294,88 @@ class EmissionTests(unittest.TestCase):
         plain = sync.build_post_body(video, ZoneInfo("Africa/Abidjan"), None)
         self.assertNotIn("categories", plain)
 
+    def test_unclassified_create_uses_the_live_reportages_term(self) -> None:
+        rows = [
+            {"id": term_id, "slug": slug, "name": name}
+            for term_id, slug, name in [
+                (7, "les-entretiens", "Les Entretiens"),
+                (6, "le-debat", "Le Débat"),
+                (2, "a-vous-la-parole", "À vous la parole"),
+                (3, "linvite", "L’invité"),
+                (4, "la-quotidienne-du-sport", "La quotidienne du sport"),
+                (5, "la-revue-de-presse-grand-format", "La revue de presse grand format"),
+                (10, "lintelligent-club", "L'intelligent Club"),
+                (44, "reportages", "Reportages"),
+                (9, "actu-sport", "Actu Sport"),
+            ]
+        ]
+        emissions, extras, missing = sync.pair_emissions(rows)
+        term = sync.reportages_term(rows)
+        self.assertEqual(missing, [])
+        self.assertEqual([row["slug"] for row in extras], ["actu-sport"])
+        assert term is not None
+        self.assertEqual(term.term_id, 44)
+        video = sample_video(title="LES COUPS DE LA VIE TOUR")
+        action = sync.annotate_categories(
+            [sync.plan_action(video, set(), datetime(2026, 1, 1, tzinfo=timezone.utc))],
+            emissions,
+            term,
+        )[0]
+        self.assertEqual(action.category_status, "reportages")
+        body = sync.build_post_body(video, ZoneInfo("Africa/Abidjan"), None, category_id=sync.category_id_for_create(action))
+        self.assertEqual(body["categories"], [44])
+        self.assertNotIn("slug", body)
+
+    def test_recognized_emission_is_not_moved_to_reportages(self) -> None:
+        emissions = catalog()
+        term = sync.EmissionCategory(term_id=44, slug="reportages", names=("Reportages",))
+        video = sample_video(title="L'invité du 22 septembre")
+        action = sync.annotate_categories(
+            [sync.plan_action(video, set(), datetime(2026, 1, 1, tzinfo=timezone.utc))],
+            emissions,
+            term,
+        )[0]
+        self.assertEqual(action.category_status, "matched")
+        self.assertEqual(action.category_slug, "linvite")
+        self.assertNotEqual(action.category_id, 44)
+
+    def test_ambiguous_title_stays_uncategorized(self) -> None:
+        emissions = catalog()
+        term = sync.EmissionCategory(term_id=44, slug="reportages", names=("Reportages",))
+        video = sample_video(title="Le débat reçoit Les entretiens")
+        action = sync.annotate_categories(
+            [sync.plan_action(video, set(), datetime(2026, 1, 1, tzinfo=timezone.utc))],
+            emissions,
+            term,
+        )[0]
+        self.assertEqual(action.category_status, "ambiguous")
+        self.assertIsNone(sync.category_id_for_create(action))
+
+    def test_missing_reportages_category_fails_closed(self) -> None:
+        self.assertIsNone(sync.reportages_term([{"id": 1, "slug": "uncategorized", "name": "Uncategorized"}]))
+        with self.assertRaises(sync.SyncError):
+            sync.require_reportages([])
+
+    def test_reclass_keeps_emissions_and_skips_the_preexisting_videos(self) -> None:
+        self.assertEqual(sync.reportages_reclass_decision("history", ["linvite"]), "skip-emission")
+        self.assertEqual(sync.reportages_reclass_decision("history", ["linvite", "uncategorized"]), "skip-emission")
+        self.assertEqual(sync.reportages_reclass_decision("timer", ["reportages"]), "skip-already")
+        self.assertEqual(sync.reportages_reclass_decision("history", ["uncategorized"]), "update")
+        self.assertEqual(sync.reportages_reclass_decision("history", ["actu-sport"]), "update")
+        self.assertEqual(sync.reportages_reclass_decision("history", []), "update")
+        self.assertEqual(sync.reportages_reclass_decision(None, ["uncategorized"]), "skip-protected")
+        self.assertEqual(sync.reportages_reclass_decision("manual", []), "skip-protected")
+
+    def test_category_restore_does_not_touch_title_or_content(self) -> None:
+        import editorial_backfill
+
+        body = editorial_backfill.categories_payload(
+            {"wp_id": 152, "categories": [1], "title": "ancien titre", "content": "<p>ancien</p>"}
+        )
+        self.assertEqual(body, {"categories": [1]})
+        with self.assertRaises(ValueError):
+            editorial_backfill.categories_payload({"categories": ["reportages"]})
+
     def test_duplicate_is_not_updated(self) -> None:
         video = sample_video()
         action = sync.plan_action(video, {video.video_id}, None, respect_watermark=False)

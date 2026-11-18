@@ -30,6 +30,8 @@ export async function generateStaticParams() {
   }));
 }
 
+export const dynamic = "force-dynamic";
+
 export async function generateMetadata({ params }: PageProps) {
   const { slug } = await params;
   const program = PROGRAMS_MAP[slug];
@@ -211,7 +213,7 @@ export default async function ProgramPage({ params }: PageProps) {
                   />
 
                   <p className="mt-4 text-white/72">
-                    {stripHtml(featuredPost.excerpt?.rendered || "")}
+                    {stripHtml(featuredPost.excerpt?.rendered || featuredPost.content?.rendered || "")}
                   </p>
 
                   <span className="mt-6 text-white/60">

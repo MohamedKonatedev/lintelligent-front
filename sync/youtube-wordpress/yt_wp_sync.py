@@ -59,6 +59,7 @@ HISTORY_FROM = "2026-09-01"
 HISTORY_TO = "2026-11-18"
 HISTORY_MAX_PAGES = 40
 # Slugs des pages /programmes du frontend. Les IDs viennent de l'API WordPress.
+REPORTAGES_SLUG = "reportages"
 EMISSION_PAGE_SLUGS = (
     "les-entretiens",
     "le-debat",
@@ -402,9 +403,56 @@ def pair_emissions(categories: list[dict]) -> tuple[list[EmissionCategory], list
         for row in categories
         if isinstance(row, dict)
         and str(row.get("slug") or "") not in EMISSION_PAGE_SLUGS
-        and str(row.get("slug") or "") != "uncategorized"
+        and str(row.get("slug") or "") not in {"uncategorized", REPORTAGES_SLUG}
     ]
     return paired, extras, missing
+
+
+def reportages_term(categories: list[dict]) -> EmissionCategory | None:
+    for row in categories:
+        if not isinstance(row, dict) or str(row.get("slug") or "") != REPORTAGES_SLUG:
+            continue
+        term_id = row.get("id")
+        name = str(row.get("name") or "").strip()
+        if isinstance(term_id, int) and term_id > 0 and name:
+            return EmissionCategory(term_id=term_id, slug=REPORTAGES_SLUG, names=(name,))
+    return None
+
+
+def require_reportages(categories: list[dict]) -> EmissionCategory:
+    term = reportages_term(categories)
+    if term is None:
+        raise SyncError("catégorie Reportages introuvable, aucune écriture", EXIT_CONFIG)
+    return term
+
+
+def apply_reportages_fallback(action: Action, reportages: EmissionCategory | None) -> Action:
+    if action.category_status != "unclassified" or reportages is None:
+        return action
+    return replace(
+        action,
+        category_id=reportages.term_id,
+        category_slug=reportages.slug,
+        category_name=reportages.names[0],
+        category_status="reportages",
+    )
+
+
+def category_id_for_create(action: Action) -> int | None:
+    if action.category_status in {"matched", "reportages"} and isinstance(action.category_id, int):
+        return action.category_id
+    return None
+
+
+def reportages_reclass_decision(source: object, category_slugs: list[str]) -> str:
+    if source not in {"history", "timer"}:
+        return "skip-protected"
+    slugs = {slug for slug in category_slugs if slug}
+    if slugs & set(EMISSION_PAGE_SLUGS):
+        return "skip-emission"
+    if REPORTAGES_SLUG in slugs:
+        return "skip-already"
+    return "update"
 
 
 def with_category(action: Action, match: TitleMatch) -> Action:
@@ -849,12 +897,31 @@ def fetch_wp_categories(http: HttpClient, origin: str) -> list[dict]:
 
 def fetch_emission_catalog(
     http: HttpClient, origin: str
-) -> tuple[list[EmissionCategory], list[dict], list[str]]:
-    return pair_emissions(fetch_wp_categories(http, origin))
+) -> tuple[list[EmissionCategory], list[dict], list[str], EmissionCategory | None]:
+    rows = fetch_wp_categories(http, origin)
+    paired, extras, missing = pair_emissions(rows)
+    return paired, extras, missing, reportages_term(rows)
 
 
-def annotate_categories(actions: list[Action], emissions: list[EmissionCategory]) -> list[Action]:
-    return [with_category(action, match_emission(action.video.title, emissions)) for action in actions]
+def annotate_categories(
+    actions: list[Action],
+    emissions: list[EmissionCategory],
+    reportages: EmissionCategory | None = None,
+) -> list[Action]:
+    annotated = [with_category(action, match_emission(action.video.title, emissions)) for action in actions]
+    return [apply_reportages_fallback(action, reportages) for action in annotated]
+
+
+def category_assignment_notes(reportages: EmissionCategory | None, actions: list[Action]) -> list[str]:
+    notes = []
+    if reportages is None:
+        notes.append("Catégorie Reportages introuvable : les vidéos sans émission reconnue restent Non classé.")
+    else:
+        notes.append("Les vidéos sans émission reconnue reçoivent la catégorie Reportages déjà présente dans WordPress.")
+    ambiguous = sum(1 for action in actions if action.decision == "create" and action.category_status == "ambiguous")
+    if ambiguous:
+        notes.append(f"{ambiguous} titre(s) ambigu(s) restent Non classé.")
+    return notes
 
 
 def editorial_source(action: Action, zone: ZoneInfo) -> editorial.EditorialSource:
@@ -1454,8 +1521,8 @@ def execute(args: argparse.Namespace) -> int:
         LOG.warning("clé YouTube absente : durée, confidentialité et directs non vérifiés, publication impossible")
     actions = [plan_action(video, existing_ids, import_after) for video in videos]
     actions.sort(key=lambda action: action.video.published_at)
-    emissions, extras, missing = fetch_emission_catalog(http, origin)
-    actions = annotate_categories(actions, emissions)
+    emissions, extras, missing, reportages = fetch_emission_catalog(http, origin)
+    actions = annotate_categories(actions, emissions, reportages)
     ai = editorial.ai_settings_from_env(env, requested=bool(args.apply))
     actions = [with_editorial(action, zone, ai if action.decision == "create" else None) for action in actions]
     summary = summarize(actions)
@@ -1506,9 +1573,7 @@ def execute(args: argparse.Namespace) -> int:
             "catégories WordPress non liées à une page d'émission : "
             + ", ".join(str(row.get("slug")) for row in extras)
         )
-    unclassified = [action.video.title for action in actions if action.decision == "create" and action.category_status == "unclassified"]
-    if unclassified:
-        report.notes.append(f"{len(unclassified)} vidéo(s) à créer resteront Non classé.")
+    report.notes.extend(category_assignment_notes(reportages, actions))
     report.decisions = build_report_decisions(actions, zone, thumb)
 
     created = 0
@@ -1538,7 +1603,7 @@ def execute(args: argparse.Namespace) -> int:
                         action.video,
                         zone,
                         featured_media=media_id,
-                        category_id=action.category_id,
+                        category_id=category_id_for_create(action),
                         editorial_title=action.editorial_title,
                         editorial_summary=action.editorial_summary,
                     )
@@ -1632,7 +1697,7 @@ def execute_history(args: argparse.Namespace) -> int:
     auth = None
     if env.get("WP_USER") and env.get("WP_APP_PASSWORD"):
         auth = basic_auth_header(env["WP_USER"], env["WP_APP_PASSWORD"])
-    emissions, extras, missing = fetch_emission_catalog(http, origin)
+    emissions, extras, missing, reportages = fetch_emission_catalog(http, origin)
     if missing and args.apply:
         raise SyncError("catalogue d'émissions incomplet : " + ", ".join(missing), EXIT_CONFIG)
     wp_total, existing_ids = fetch_existing_youtube_ids(http, origin, auth if args.apply else None)
@@ -1666,7 +1731,7 @@ def execute_history(args: argparse.Namespace) -> int:
         plan_action(video, existing_ids, None, respect_watermark=False)
         for video in videos
     ]
-    actions = annotate_categories(actions, emissions)
+    actions = annotate_categories(actions, emissions, reportages)
     ai = editorial.ai_settings_from_env(env, requested=bool(args.apply))
     actions = [with_editorial(action, zone, ai if action.decision == "create" else None) for action in actions]
     actions.sort(key=lambda action: action.video.published_at)
@@ -1698,6 +1763,7 @@ def execute_history(args: argparse.Namespace) -> int:
         notes=[
             "Le repère import_after du timer n'est pas modifié.",
             "Les vidéos privées, non répertoriées, programmées, en direct ou non intégrables sont exclues.",
+            *category_assignment_notes(reportages, actions),
         ],
     )
     if missing:
@@ -1726,7 +1792,7 @@ def execute_history(args: argparse.Namespace) -> int:
                         action.video,
                         zone,
                         featured_media=media_id,
-                        category_id=action.category_id if action.category_status == "matched" else None,
+                        category_id=category_id_for_create(action),
                         editorial_title=action.editorial_title,
                         editorial_summary=action.editorial_summary,
                     )
@@ -1795,6 +1861,8 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--with-ai", action="store_true", help="Autorise une génération IA pour les nouvelles vidéos ou l'aperçu généré.")
     parser.add_argument("--include-review", action="store_true", help="Inclut les fiches marquées requires_review. À n'utiliser qu'après validation.")
     parser.add_argument("--include-timer", action="store_true", help="Inclut aussi les vidéos créées par le timer.")
+    parser.add_argument("--reportages", action="store_true", help="Reclasse dans Reportages les vidéos importées sans émission. Dry-run par défaut.")
+    parser.add_argument("--reportages-restore", action="store_true", help="Restaure uniquement les catégories depuis une sauvegarde.")
     return parser
 
 
@@ -1815,6 +1883,10 @@ def main(argv: list[str] | None = None) -> int:
             return run_bootstrap(args, env_settings())
         if args.auth_check:
             return run_auth_check(env_settings())
+        if args.reportages_restore:
+            return editorial_backfill.execute_reportages_restore(args, sys.modules[__name__])
+        if args.reportages:
+            return editorial_backfill.execute_reportages(args, sys.modules[__name__])
         if args.editorial_restore:
             return editorial_backfill.execute_restore(args, sys.modules[__name__])
         if args.editorial_pack:

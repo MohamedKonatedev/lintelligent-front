@@ -41,10 +41,11 @@ export type WpCategory = {
   slug: string;
 };
 
+/** Lecture fraîche : un titre ou une catégorie corrigés dans WordPress doivent apparaître au prochain affichage. */
+const freshRead: RequestInit = { cache: "no-store" };
+
 export async function getCategoryBySlug(slug: string): Promise<WpCategory | null> {
-  const data = await wpFetchJson<WpCategory[]>(`${WP_API}/categories?slug=${slug}`, {
-    next: { revalidate: 120 },
-  });
+  const data = await wpFetchJson<WpCategory[]>(`${WP_API}/categories?slug=${slug}`, freshRead);
   return data?.[0] ?? null;
 }
 
@@ -55,9 +56,7 @@ export async function getPostsByCategorySlug(slug: string, perPage = 9): Promise
 
   const data = await wpFetchJson<WpPost[]>(
     `${WP_API}/videos?categories=${category.id}&per_page=${perPage}&_embed`,
-    {
-      next: { revalidate: 120 },
-    }
+    freshRead
   );
 
   return data ?? [];
@@ -66,9 +65,7 @@ export async function getPostsByCategorySlug(slug: string, perPage = 9): Promise
 export async function getAllVideos(perPage = 24): Promise<WpPost[]> {
   const data = await wpFetchJson<WpPost[]>(
     `${WP_API}/videos?per_page=${perPage}&_embed`,
-    {
-      next: { revalidate: 120 },
-    }
+    freshRead
   );
 
   return data ?? [];
@@ -78,9 +75,7 @@ export async function getAllVideos(perPage = 24): Promise<WpPost[]> {
 export async function getVideoBySlug(slug: string): Promise<WpPost | null> {
   const data = await wpFetchJson<WpPost[]>(
     `${WP_API}/videos?slug=${encodeURIComponent(slug)}&per_page=1&_embed`,
-    {
-      next: { revalidate: 3600 },
-    }
+    freshRead
   );
   return data?.[0] ?? null;
 }
@@ -110,7 +105,7 @@ export async function getRecentVideosForRelated(
   const fields = "id,slug,title,excerpt,date,categories,acf";
   const data = await wpFetchJson<WpPost[]>(
     `${WP_API}/videos?per_page=${limit + 4}&_fields=${fields}`,
-    { next: { revalidate: 3600 } }
+    freshRead
   );
   return (data ?? []).filter((v) => v.id !== excludeId).slice(0, limit);
 }

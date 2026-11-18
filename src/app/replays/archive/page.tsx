@@ -22,6 +22,8 @@ type ArchivePageProps = {
   }>;
 };
 
+export const dynamic = "force-dynamic";
+
 export async function generateMetadata({ searchParams }: ArchivePageProps) {
   const { filter } = await searchParams;
   const program = filter ? PROGRAMS_MAP[filter] : null;
@@ -126,7 +128,7 @@ export default async function ReplaysArchivePage({
                   />
 
                   <p className="mt-2 line-clamp-3 text-[12px] leading-5 text-white/62 sm:text-sm">
-                    {stripHtml(video.excerpt?.rendered || "")}
+                    {stripHtml(video.excerpt?.rendered || video.content?.rendered || "")}
                   </p>
 
                   <p className="mt-3 text-[11px] text-white/70 sm:text-xs">

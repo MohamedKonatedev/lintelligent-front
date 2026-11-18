@@ -25,31 +25,36 @@ type PageProps = {
   }>;
 };
 
+export const dynamic = "force-dynamic";
+
 export async function generateMetadata({ params }: PageProps) {
   const { slug } = await params;
   const program = PROGRAMS_MAP[slug];
+  const title = program?.title ?? (slug === "reportages" ? "Reportages" : null);
 
-  if (!program) {
+  if (!title) {
     return {
       title: "Replays | L'Intelligent TV",
     };
   }
 
   return {
-    title: `${program.title} | Replays`,
-    description: `Retrouvez les replays de ${program.title}.`,
+    title: `${title} | Replays`,
+    description: `Retrouvez les replays de ${title}.`,
   };
 }
 
 export default async function ReplayProgramPage({ params }: PageProps) {
   const { slug } = await params;
   const program = PROGRAMS_MAP[slug];
+  const reportages = slug === "reportages" ? await getCategoryBySlug("reportages") : null;
 
-  if (!program) {
+  if (!program && !reportages) {
     notFound();
   }
 
-  const category = await getCategoryBySlug(slug);
+  const title = program?.title ?? reportages?.name ?? "Reportages";
+  const category = program ? await getCategoryBySlug(slug) : reportages;
   const videos = await getAllVideos(100);
 
   // Version plus propre de filteredVideos proposée
@@ -68,9 +73,9 @@ export default async function ReplayProgramPage({ params }: PageProps) {
     slug: video.slug,
     link: video.link || "#",
     title: video.title?.rendered || "",
-    excerpt: stripHtml(video.excerpt?.rendered || ""),
+    excerpt: stripHtml(video.excerpt?.rendered || video.content?.rendered || ""),
     date: formatDate(video.date),
-    image: getReplayCardImage(video) || program.imageDesktop,
+    image: getReplayCardImage(video) || program?.imageDesktop || "/bg-live.jpg",
   }));
 
   return (
@@ -109,10 +114,10 @@ export default async function ReplayProgramPage({ params }: PageProps) {
           </div>
           <div className="max-w-3xl">
             <h1 className="text-4xl font-extrabold leading-tight text-white sm:text-5xl lg:text-6xl">
-              {program.title}
+              {title}
             </h1>
             <p className="mt-4 max-w-2xl text-sm leading-7 text-white/72 sm:text-base">
-              Retrouvez toutes les émissions en replay de {program.title}.
+              Retrouvez toutes les émissions en replay de {title}.
             </p>
             <div className="mt-6">
               <Link

@@ -131,7 +131,7 @@ def execute(args, sync) -> int:
     http = sync.HttpClient(allow_write=bool(args.apply))
     if args.apply and auth is not None:
         assert_editorial_account(sync, sync.auth_check(http, origin, auth), env.get("WP_USER") or "")
-    emissions, _extras, _missing = sync.fetch_emission_catalog(http, origin)
+    emissions, _extras, _missing, _reportages = sync.fetch_emission_catalog(http, origin)
     ai = editorial.ai_settings_from_env(env, requested=bool(args.with_ai))
     rows: list[dict[str, object]] = []
     planned: list[dict[str, object]] = []
@@ -498,6 +498,193 @@ def execute_restore(args, sync) -> int:
         sync.LOG.info("restauré wp_id=%s", item.get("wp_id"))
     json.dump(
         {"mode": "editorial-restore", "writes": True, "count": len(preview)},
+        sys.stdout,
+        ensure_ascii=False,
+        indent=2,
+    )
+    sys.stdout.write("\n")
+    return sync.EXIT_OK
+
+
+def categories_payload(item: dict) -> dict[str, list[int]]:
+    categories = item.get("categories")
+    if not isinstance(categories, list) or not all(isinstance(value, int) and value > 0 for value in categories):
+        raise ValueError("catégories illisibles")
+    return {"categories": list(categories)}
+
+
+def update_video_categories(sync, http, origin: str, auth: dict[str, str], wp_id: int, categories: list[int]) -> None:
+    headers = {**auth, "Content-Type": "application/json"}
+    result = http.request(
+        "POST",
+        f"{sync.wp_api_base(origin)}/videos/{int(wp_id)}",
+        headers=headers,
+        body=json.dumps(categories_payload({"categories": categories})).encode("utf-8"),
+    )
+    if result.status not in {200, 201}:
+        raise sync.SyncError(f"classement vidéo {wp_id} HTTP {result.status}", sync.EXIT_WP)
+
+
+def execute_reportages(args, sync) -> int:
+    env = sync.env_settings()
+    origin = (env.get("WP_BASE_URL") or sync.DEFAULT_WP_BASE).rstrip("/")
+    state_dir_raw = str(args.state_dir or env.get("YT_SYNC_STATE_DIR") or "")
+    if not state_dir_raw:
+        raise sync.SyncError("dossier d'état requis", sync.EXIT_CONFIG)
+    state_path, lock_path = sync.state_paths(Path(state_dir_raw))
+    state = sync.load_state(state_path)
+    preserved_after = state.get("import_after")
+    tracked = state.get("synced") if isinstance(state.get("synced"), dict) else {}
+    http = sync.HttpClient(allow_write=bool(args.apply))
+    rows_wp = sync.fetch_wp_categories(http, origin)
+    term = sync.require_reportages(rows_wp)
+    slugs = {
+        row["id"]: str(row.get("slug") or "")
+        for row in rows_wp
+        if isinstance(row, dict) and isinstance(row.get("id"), int)
+    }
+    decisions: list[dict[str, object]] = []
+    planned: list[dict[str, object]] = []
+    for video_id, entry in tracked.items():
+        if not isinstance(entry, dict) or not sync.YOUTUBE_ID_RE.fullmatch(str(video_id)):
+            continue
+        wp_id = entry.get("wp_id")
+        source = entry.get("source")
+        if not isinstance(wp_id, int):
+            decisions.append({"youtube_id": video_id, "decision": "skip-protected", "source": source})
+            continue
+        post = fetch_video(sync, http, origin, wp_id, None)
+        if post is None:
+            decisions.append({"wp_id": wp_id, "youtube_id": video_id, "decision": "skip-missing"})
+            continue
+        acf = post.get("acf") if isinstance(post.get("acf"), dict) else {}
+        linked = sync.extract_youtube_id(str(acf.get("lien_video") or ""))
+        if linked != video_id:
+            decisions.append(
+                {
+                    "wp_id": wp_id,
+                    "youtube_id": video_id,
+                    "decision": "skip-unverified" if not linked else "skip-id-mismatch",
+                }
+            )
+            continue
+        current = [item for item in post.get("categories") or [] if isinstance(item, int)]
+        current_slugs = [slugs.get(item, "") for item in current]
+        decision = sync.reportages_reclass_decision(source, current_slugs)
+        row = {
+            "wp_id": wp_id,
+            "youtube_id": video_id,
+            "source": source,
+            "decision": decision,
+            "categories": current,
+            "category_slugs": current_slugs,
+        }
+        decisions.append(row)
+        if decision == "update":
+            planned.append(row)
+    report: dict[str, object] = {
+        "mode": "reportages-apply" if args.apply else "reportages-dry-run",
+        "writes": False,
+        "reportages_id": term.term_id,
+        "reportages_slug": term.slug,
+        "import_after": preserved_after,
+        "to_update": len(planned),
+        "kept": sum(1 for row in decisions if row["decision"] == "skip-emission"),
+        "decisions": decisions,
+        "notes": [
+            "Seules les vidéos enregistrées par la synchronisation sont examinées.",
+            "Les vidéos antérieures, absentes de cet état, ne sont pas modifiées.",
+            "Une vidéo déjà rangée dans une émission reconnue n'est pas déplacée.",
+            "Seul le champ categories est envoyé. Titre, contenu, lien, miniature, date, durée et URL restent en place.",
+            "import_after n'est pas modifié.",
+        ],
+    }
+    if args.apply and planned:
+        if env.get("YT_EDITORIAL_APPLY") != "1":
+            raise sync.SyncError("YT_EDITORIAL_APPLY doit valoir 1", sync.EXIT_CONFIG)
+        auth = credentials(sync, env)
+        if auth is None:
+            raise sync.SyncError("compte éditorial requis", sync.EXIT_CONFIG)
+        assert_editorial_account(sync, sync.auth_check(http, origin, auth), env.get("WP_USER") or "")
+        stamp_name = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
+        backup_path = Path(state_dir_raw) / f"reportages-backup-{stamp_name}.json"
+        backup_path.write_text(
+            json.dumps(
+                {"created_at": stamp_name, "reportages_id": term.term_id, "items": planned},
+                ensure_ascii=False,
+                indent=2,
+            )
+            + "\n",
+            encoding="utf-8",
+        )
+        sync.LOG.info("sauvegarde des catégories : %s", backup_path)
+        log_path = Path(state_dir_raw) / "reportages.log"
+        with sync.exclusive_lock(lock_path):
+            current_state = sync.load_state(state_path)
+            if current_state.get("import_after") != preserved_after:
+                raise sync.SyncError("import_after a changé pendant le classement", sync.EXIT_ERROR)
+            for item in planned:
+                update_video_categories(sync, http, origin, auth, int(item["wp_id"]), [term.term_id])
+                report["writes"] = True
+                with log_path.open("a", encoding="utf-8") as handle:
+                    handle.write(
+                        json.dumps(
+                            {
+                                "at": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
+                                "wp_id": item["wp_id"],
+                                "video_id": item["youtube_id"],
+                                "from": item["categories"],
+                                "to": [term.term_id],
+                            },
+                            ensure_ascii=False,
+                        )
+                        + "\n"
+                    )
+            if sync.load_state(state_path).get("import_after") != preserved_after:
+                raise sync.SyncError("import_after a été modifié", sync.EXIT_ERROR)
+    if args.report:
+        Path(args.report).parent.mkdir(parents=True, exist_ok=True)
+        Path(args.report).write_text(json.dumps(report, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+    json.dump(report, sys.stdout, ensure_ascii=False, indent=2)
+    sys.stdout.write("\n")
+    sync.LOG.info("reportages mode=%s a_classer=%s conservees=%s", report["mode"], report["to_update"], report["kept"])
+    return sync.EXIT_OK
+
+
+def execute_reportages_restore(args, sync) -> int:
+    env = sync.env_settings()
+    origin = (env.get("WP_BASE_URL") or sync.DEFAULT_WP_BASE).rstrip("/")
+    if not args.backup:
+        raise sync.SyncError("fichier de sauvegarde requis", sync.EXIT_CONFIG)
+    payload = json.loads(Path(args.backup).read_text(encoding="utf-8"))
+    items = payload.get("items") if isinstance(payload, dict) else None
+    if not isinstance(items, list):
+        raise sync.SyncError("sauvegarde illisible", sync.EXIT_CONFIG)
+    preview = []
+    for item in items:
+        if isinstance(item, dict):
+            preview.append({"wp_id": item.get("wp_id"), **categories_payload(item)})
+    if not args.apply:
+        json.dump(
+            {"mode": "reportages-restore-dry-run", "writes": False, "items": preview},
+            sys.stdout,
+            ensure_ascii=False,
+            indent=2,
+        )
+        sys.stdout.write("\n")
+        return sync.EXIT_OK
+    if env.get("YT_EDITORIAL_APPLY") != "1":
+        raise sync.SyncError("YT_EDITORIAL_APPLY doit valoir 1", sync.EXIT_CONFIG)
+    auth = credentials(sync, env)
+    if auth is None:
+        raise sync.SyncError("compte éditorial requis", sync.EXIT_CONFIG)
+    http = sync.HttpClient(allow_write=True)
+    assert_editorial_account(sync, sync.auth_check(http, origin, auth), env.get("WP_USER") or "")
+    for item in preview:
+        update_video_categories(sync, http, origin, auth, int(item["wp_id"]), list(item["categories"]))
+        sync.LOG.info("catégories restaurées wp_id=%s", item.get("wp_id"))
+    json.dump(
+        {"mode": "reportages-restore", "writes": True, "count": len(preview)},
         sys.stdout,
         ensure_ascii=False,
         indent=2,

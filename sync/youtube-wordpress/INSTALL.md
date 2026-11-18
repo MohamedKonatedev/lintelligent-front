@@ -210,3 +210,33 @@ journalctl -u lintelligent-yt-sync.service -n 80 --no-pager
 ```
 
 Le modèle `gpt-4o-mini` coûte de l'ordre d'un centime pour une centaine de vidéos courtes. Aucune génération n'est répétée à l'affichage du site ni à chaque passage du timer sur une vidéo déjà créée.
+
+## Reportages
+
+La catégorie est lue dans WordPress par son slug `reportages`. Son identifiant n'est pas écrit dans le script. Une émission reconnue conserve sa catégorie. Un titre ambigu reste Non classé. Une vidéo sans émission reconnue reçoit Reportages à la création. La commande ne crée pas de catégorie.
+
+Le compte `youtube-sync` peut seulement rattacher une catégorie existante au moment de la création. Le reclassement des vidéos déjà publiées utilise le compte éditorial. Le timer de 10 minutes n'est pas modifié.
+
+```bash
+cd /opt/lintelligent-yt-sync
+python3 yt_wp_sync.py --reportages --dry-run \
+  --env-file /etc/lintelligent/youtube-sync.env \
+  --state-dir /var/lib/lintelligent-yt-sync \
+  --report /var/lib/lintelligent-yt-sync/reportages-dry-run.json
+```
+
+Après lecture du rapport, et seulement alors :
+
+```bash
+YT_EDITORIAL_APPLY=1 python3 yt_wp_sync.py --reportages --apply \
+  --env-file /etc/lintelligent/youtube-sync.env \
+  --state-dir /var/lib/lintelligent-yt-sync
+```
+
+La restauration ne renvoie que les catégories :
+
+```bash
+python3 yt_wp_sync.py --reportages-restore --dry-run \
+  --backup /var/lib/lintelligent-yt-sync/reportages-backup-DATE.json \
+  --env-file /etc/lintelligent/youtube-sync.env
+```
