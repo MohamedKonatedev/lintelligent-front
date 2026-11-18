@@ -31,6 +31,9 @@ from pathlib import Path
 from typing import Iterator
 from zoneinfo import ZoneInfo
 
+import editorial
+import editorial_backfill
+
 LOG = logging.getLogger("yt_wp_sync")
 
 DEFAULT_CHANNEL_ID = "UC23vhsEy8dqmxPV1bC6r7uQ"
@@ -190,11 +193,23 @@ class Action:
     category_name: str | None = None
     category_status: str = ""
     category_candidates: tuple[str, ...] = ()
+    editorial_title: str | None = None
+    editorial_summary: str | None = None
+    editorial_method: str = ""
+    editorial_review: bool = False
+    editorial_note: str = ""
 
     def payload_preview(self, zone: ZoneInfo) -> dict[str, object] | None:
         if self.decision != "create" and self.reason not in {"bootstrap-required", "unverified-no-api"}:
             return None
-        body = build_post_body(self.video, zone, featured_media=None, category_id=self.category_id)
+        body = build_post_body(
+            self.video,
+            zone,
+            featured_media=None,
+            category_id=self.category_id,
+            editorial_title=self.editorial_title,
+            editorial_summary=self.editorial_summary,
+        )
         content = body.get("content")
         if isinstance(content, str) and len(content) > 280:
             body["content"] = content[:280] + "…"
@@ -411,19 +426,42 @@ def history_window(zone: ZoneInfo, start_day: str, end_day: str) -> tuple[dateti
     return start, end_exclusive
 
 
-def remember_created(state: dict, video_id: str, wp_id: int, linked: bool, source: str) -> None:
+def remember_created(
+    state: dict,
+    video_id: str,
+    wp_id: int,
+    linked: bool,
+    source: str,
+    copy: editorial.EditorialCopy | None = None,
+    youtube_title: str = "",
+    youtube_description: str = "",
+) -> None:
     """Ajoute un identifiant créé sans toucher au repère du timer."""
     import_after = state.get("import_after")
     bootstrapped_at = state.get("bootstrapped_at")
     synced = state.setdefault("synced", {})
     if not isinstance(synced, dict):
         raise SyncError("fichier d'état illisible", EXIT_CONFIG)
-    synced[video_id] = {
+    created_at = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+    record: dict[str, object] = {
         "wp_id": wp_id,
-        "created_at": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
+        "created_at": created_at,
         "lien_video_ok": linked,
         "source": source,
     }
+    if copy is not None:
+        record.update(
+            {
+                "youtube_title": youtube_title,
+                "youtube_description": youtube_description[:8000],
+                "editorial_title": copy.title,
+                "editorial_summary": copy.summary,
+                "editorial_method": copy.method,
+                "editorial_needs_review": copy.needs_review,
+                "editorial_applied_at": created_at,
+            }
+        )
+    synced[video_id] = record
     if state.get("import_after") != import_after or state.get("bootstrapped_at") != bootstrapped_at:
         raise SyncError("le repère automatique a été modifié", EXIT_ERROR)
 
@@ -511,6 +549,8 @@ def build_post_body(
     zone: ZoneInfo,
     featured_media: int | None,
     category_id: int | None = None,
+    editorial_title: str | None = None,
+    editorial_summary: str | None = None,
 ) -> dict[str, object]:
     acf: dict[str, str] = {
         "lien_video": canonical_watch_url(video.video_id),
@@ -519,12 +559,15 @@ def build_post_body(
     if video.duration_display:
         acf["duree"] = video.duration_display
     body: dict[str, object] = {
-        "title": video.title.strip(),
+        "title": (editorial_title or video.title).strip(),
         "status": "publish",
         "date_gmt": format_wp_gmt(video.published_at),
         "acf": acf,
     }
-    content = description_to_html(video.description)
+    if editorial_summary is not None:
+        content = editorial.editorial_paragraph(editorial_summary)
+    else:
+        content = description_to_html(video.description)
     if content:
         body["content"] = content
     if featured_media is not None:
@@ -810,6 +853,43 @@ def fetch_emission_catalog(
 
 def annotate_categories(actions: list[Action], emissions: list[EmissionCategory]) -> list[Action]:
     return [with_category(action, match_emission(action.video.title, emissions)) for action in actions]
+
+
+def editorial_source(action: Action, zone: ZoneInfo) -> editorial.EditorialSource:
+    show_name = action.category_name if action.category_status == "matched" else None
+    return editorial.EditorialSource(
+        youtube_title=action.video.title,
+        youtube_description=action.video.description,
+        show_name=show_name,
+        published_at=action.video.published_at,
+        zone=zone,
+    )
+
+
+def with_editorial(action: Action, zone: ZoneInfo, ai: editorial.AiSettings | None) -> Action:
+    if action.decision != "create":
+        return action
+    copy = editorial.compose_editorial(editorial_source(action, zone), ai)
+    return replace(
+        action,
+        editorial_title=copy.title,
+        editorial_summary=copy.summary,
+        editorial_method=copy.method,
+        editorial_review=copy.needs_review,
+        editorial_note=copy.note,
+    )
+
+
+def copy_from_action(action: Action) -> editorial.EditorialCopy | None:
+    if not action.editorial_title or not action.editorial_summary:
+        return None
+    return editorial.EditorialCopy(
+        title=action.editorial_title,
+        summary=action.editorial_summary,
+        method=action.editorial_method or "fallback",
+        needs_review=action.editorial_review,
+        note=action.editorial_note,
+    )
 
 
 def assert_quota_safe(url: str) -> None:
@@ -1173,6 +1253,13 @@ def env_settings() -> dict[str, str]:
         "YT_SYNC_TIMEZONE",
         "YT_SYNC_ENABLED",
         "YT_SYNC_MAX_PER_RUN",
+        "YT_EDITORIAL_AI",
+        "YT_EDITORIAL_API_KEY",
+        "YT_EDITORIAL_API_URL",
+        "YT_EDITORIAL_MODEL",
+        "YT_EDITORIAL_APPLY",
+        "WP_EDITORIAL_USER",
+        "WP_EDITORIAL_APP_PASSWORD",
     ]
     return {key: os.environ.get(key, "").strip() for key in keys}
 
@@ -1209,6 +1296,11 @@ def build_report_decisions(actions: list[Action], zone: ZoneInfo, thumb: dict[st
             row["category_name"] = action.category_name
         if action.category_candidates:
             row["category_candidates"] = list(action.category_candidates)
+        if action.editorial_title:
+            row["editorial_title"] = action.editorial_title
+            row["editorial_summary"] = action.editorial_summary
+            row["editorial_method"] = action.editorial_method
+            row["editorial_needs_review"] = action.editorial_review
         if action.video.video_id == newest_preview:
             preview = action.payload_preview(zone)
             if preview:
@@ -1362,6 +1454,8 @@ def execute(args: argparse.Namespace) -> int:
     actions.sort(key=lambda action: action.video.published_at)
     emissions, extras, missing = fetch_emission_catalog(http, origin)
     actions = annotate_categories(actions, emissions)
+    ai = editorial.ai_settings_from_env(env, requested=bool(args.apply))
+    actions = [with_editorial(action, zone, ai if action.decision == "create" else None) for action in actions]
     summary = summarize(actions)
     thumb = None
     if args.dry_run or not args.apply:
@@ -1443,11 +1537,22 @@ def execute(args: argparse.Namespace) -> int:
                         zone,
                         featured_media=media_id,
                         category_id=action.category_id,
+                        editorial_title=action.editorial_title,
+                        editorial_summary=action.editorial_summary,
                     )
                     created_post = create_video_post(http, origin, auth, body)
                     wp_id = int(created_post["id"])
                     linked = confirm_link(http, origin, auth, wp_id, action.video.video_id, created_post)
-                    remember_created(state, action.video.video_id, wp_id, linked, "timer")
+                    remember_created(
+                        state,
+                        action.video.video_id,
+                        wp_id,
+                        linked,
+                        "timer",
+                        copy=copy_from_action(action),
+                        youtube_title=action.video.title,
+                        youtube_description=action.video.description,
+                    )
                     save_state(state_path, state)
                     locked_ids.add(action.video.video_id)
                     created += 1
@@ -1560,6 +1665,8 @@ def execute_history(args: argparse.Namespace) -> int:
         for video in videos
     ]
     actions = annotate_categories(actions, emissions)
+    ai = editorial.ai_settings_from_env(env, requested=bool(args.apply))
+    actions = [with_editorial(action, zone, ai if action.decision == "create" else None) for action in actions]
     actions.sort(key=lambda action: action.video.published_at)
     history = summarize_history(actions)
     history["from"] = start.strftime("%Y-%m-%dT%H:%M:%SZ")
@@ -1618,11 +1725,22 @@ def execute_history(args: argparse.Namespace) -> int:
                         zone,
                         featured_media=media_id,
                         category_id=action.category_id if action.category_status == "matched" else None,
+                        editorial_title=action.editorial_title,
+                        editorial_summary=action.editorial_summary,
                     )
                     created_post = create_video_post(http, origin, auth, body)
                     wp_id = int(created_post["id"])
                     linked = confirm_link(http, origin, auth, wp_id, action.video.video_id, created_post)
-                    remember_created(state, action.video.video_id, wp_id, linked, "history")
+                    remember_created(
+                        state,
+                        action.video.video_id,
+                        wp_id,
+                        linked,
+                        "history",
+                        copy=copy_from_action(action),
+                        youtube_title=action.video.title,
+                        youtube_description=action.video.description,
+                    )
                     if state.get("import_after") != preserved_after:
                         raise SyncError("import_after a été modifié", EXIT_ERROR)
                     save_state(state_path, state)
@@ -1668,6 +1786,11 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--history", action="store_true", help="Import unique d'une période, sans changer import_after.")
     parser.add_argument("--history-from", default=HISTORY_FROM, help="Jour de début inclus, heure d'Abidjan.")
     parser.add_argument("--history-to", default=HISTORY_TO, help="Jour de fin inclus, heure d'Abidjan.")
+    parser.add_argument("--editorial", action="store_true", help="Prévisualise ou réécrit les vidéos déjà importées.")
+    parser.add_argument("--editorial-restore", action="store_true", help="Restaure titre et contenu depuis une sauvegarde.")
+    parser.add_argument("--backup", type=Path, help="Sauvegarde éditoriale à restaurer.")
+    parser.add_argument("--with-ai", action="store_true", help="Autorise une génération IA pour cette commande.")
+    parser.add_argument("--include-timer", action="store_true", help="Inclut aussi les vidéos créées par le timer.")
     return parser
 
 
@@ -1677,12 +1800,21 @@ def main(argv: list[str] | None = None) -> int:
     if args.env_file:
         load_env_file(args.env_file)
     configure_logging(args.verbose or not args.apply)
-    secrets = [os.environ.get("YOUTUBE_API_KEY", ""), os.environ.get("WP_APP_PASSWORD", "")]
+    secrets = [
+        os.environ.get("YOUTUBE_API_KEY", ""),
+        os.environ.get("WP_APP_PASSWORD", ""),
+        os.environ.get("WP_EDITORIAL_APP_PASSWORD", ""),
+        os.environ.get("YT_EDITORIAL_API_KEY", ""),
+    ]
     try:
         if args.bootstrap:
             return run_bootstrap(args, env_settings())
         if args.auth_check:
             return run_auth_check(env_settings())
+        if args.editorial_restore:
+            return editorial_backfill.execute_restore(args, sys.modules[__name__])
+        if args.editorial:
+            return editorial_backfill.execute(args, sys.modules[__name__])
         if args.history and args.bootstrap:
             raise SyncError("historique et bootstrap sont incompatibles", EXIT_CONFIG)
         if not args.apply:

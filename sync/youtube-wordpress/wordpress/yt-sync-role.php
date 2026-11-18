@@ -14,6 +14,8 @@
  * - attribution d'une catégorie déjà existante à une vidéo nouvellement créée ;
  * - aucune création, modification ou suppression de catégorie ;
  * - aucune mise à jour d'une vidéo existante ;
+ * - la réécriture des vidéos déjà publiées est réservée à un compte
+ *   administrateur distinct, jamais à ce rôle ;
  * - aucun autre type (articles, pages, emissions, live, programmation) ;
  * - suppression limitée à ses propres fichiers, pour retirer une miniature orpheline ;
  * - pas d'administration, de XML-RPC, d'options, d'utilisateurs, de commentaires
